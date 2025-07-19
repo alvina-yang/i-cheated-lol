@@ -9,6 +9,7 @@ from .validator_prompts import ValidatorPrompts
 from .code_modifier_prompts import CodeModifierPrompts
 from .git_prompts import GitPrompts
 from .presentation_prompts import PresentationPrompts
+from .file_analysis_prompts import FileAnalysisPrompts
 
 __all__ = [
     'SearchPrompts',
@@ -16,5 +17,6 @@ __all__ = [
 
     'CodeModifierPrompts',
     'GitPrompts',
-    'PresentationPrompts'
+    'PresentationPrompts',
+    'FileAnalysisPrompts'
 ] 

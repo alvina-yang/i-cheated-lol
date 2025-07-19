@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -46,8 +46,10 @@ import { API_ENDPOINTS } from "./constants/api";
 
 export default function ProjectPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const projectName = params.name as string;
+  const githubUrl = searchParams.get('github_url');
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -160,6 +162,27 @@ export default function ProjectPage() {
   const fetchProjectFiles = async () => {
     try {
       setLoading(true);
+      
+      // If we have a GitHub URL, clone the repository first
+      if (githubUrl) {
+        setError('Cloning repository...');
+        const cloneResponse = await fetch(`http://localhost:8000/api/clone`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_name: projectName,
+            project_url: githubUrl,
+            clone_url: githubUrl.endsWith('.git') ? githubUrl : `${githubUrl}.git`
+          })
+        });
+        
+        if (!cloneResponse.ok) {
+          throw new Error('Failed to clone repository');
+        }
+        
+        setError(null);
+      }
+      
       const response = await fetch(API_ENDPOINTS.PROJECT_FILES(projectName));
       
       if (!response.ok) {

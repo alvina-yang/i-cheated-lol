@@ -20,6 +20,11 @@ class FileOperationRequest(BaseModel):
     file_path: str  # Relative path within the project
 
 
+class FileSaveRequest(BaseModel):
+    file_path: str
+    content: str
+
+
 class FileOperationResponse(BaseModel):
     success: bool
     message: str
@@ -134,6 +139,33 @@ async def rename_variables_in_file(request: FileOperationRequest):
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error renaming variables: {str(e)}")
+
+
+@router.post("/save/{project_name}")
+async def save_file_content(project_name: str, request: FileSaveRequest):
+    """Save content to a file"""
+    try:
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build full file path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        full_file_path = os.path.join(project_path, request.file_path)
+        
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(full_file_path), exist_ok=True)
+        
+        # Write the content to the file
+        with open(full_file_path, 'w', encoding='utf-8') as f:
+            f.write(request.content)
+        
+        return {
+            "success": True,
+            "message": f"File saved successfully: {request.file_path}",
+            "file_path": request.file_path
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
 
 
 @router.get("/content/{project_name}")

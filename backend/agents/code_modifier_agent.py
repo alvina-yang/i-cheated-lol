@@ -321,7 +321,7 @@ class CodeModifierAgent(BaseAgent):
         """
         try:
             # Import status tracker here to avoid circular imports
-            from main_refactored import status_tracker
+            from backend.app import status_tracker
             
             status_tracker.add_output_line(f"🔍 Scanning project for code files...", "code")
             

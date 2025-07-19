@@ -212,7 +212,7 @@ class CommitAgent(BaseAgent):
         """
         try:
             # Import status tracker here to avoid circular imports
-            from main_refactored import status_tracker
+            from backend.app import status_tracker
             
             status_tracker.add_output_line("🔄 Getting commit history...", "git")
             
@@ -261,7 +261,7 @@ class CommitAgent(BaseAgent):
         """Rewrite git history using direct git commands."""
         try:
             # Import status tracker here to avoid circular imports
-            from main_refactored import status_tracker
+            from backend.app import status_tracker
             
             # Create a backup branch first
             status_tracker.add_output_line("🔄 Creating backup branch...", "git")

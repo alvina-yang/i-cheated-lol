@@ -1,7 +1,7 @@
 # Core Dependencies
-langchain==0.1.0
-langchain-openai==0.0.5
-langchain-community==0.0.10
+langchain==0.2.16
+langchain-openai==0.1.23
+langchain-community==0.2.16
 requests==2.31.0
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0
@@ -13,8 +13,11 @@ lxml==4.9.3
 # FastAPI Dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-pydantic==2.5.0
+pydantic>=2.7.4,<3.0.0
 python-multipart==0.0.6
 
 # CORS for frontend communication
 fastapi-cors==0.0.6 
+
+# Additional streaming dependencies
+sse-starlette==1.8.2 

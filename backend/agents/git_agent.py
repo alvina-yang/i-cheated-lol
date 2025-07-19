@@ -96,6 +96,119 @@ class GitAgent(BaseAgent):
                 "message": f"URL validation failed: {str(e)}"
             }
     
+    def clone_to_new_repository(self, project_path: str, target_url: str, 
+                              user_preferences: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Clone the project to a new empty repository.
+        
+        Args:
+            project_path: Path to the project directory
+            target_url: Target repository URL (should be empty)
+            user_preferences: User preferences including git credentials
+            
+        Returns:
+            Dictionary with cloning results
+        """
+        try:
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            
+            # Validate target URL
+            validation = self.validate_repository_url(target_url)
+            if not validation["valid"]:
+                return {
+                    "success": False,
+                    "message": f"Invalid target URL: {validation['message']}"
+                }
+            
+            status_tracker.add_output_line(f"🔗 Cloning to target repository: {target_url}", "git")
+            
+            # Create a temporary directory for the new repository
+            import tempfile
+            import shutil
+            
+            temp_dir = tempfile.mkdtemp(prefix="chameleon_clone_")
+            new_repo_path = os.path.join(temp_dir, "cloned_repo")
+            
+            try:
+                # Step 1: Copy the entire project to temp directory
+                status_tracker.add_output_line("📂 Copying project files...", "git")
+                shutil.copytree(project_path, new_repo_path, symlinks=True)
+                
+                # Step 2: Initialize new git repository
+                status_tracker.add_output_line("🔧 Initializing new git repository...", "git")
+                subprocess.run(['git', 'init'], cwd=new_repo_path, check=True, capture_output=True)
+                
+                # Step 3: Remove existing git history
+                git_dir = os.path.join(new_repo_path, '.git')
+                if os.path.exists(git_dir):
+                    shutil.rmtree(git_dir)
+                    subprocess.run(['git', 'init'], cwd=new_repo_path, check=True, capture_output=True)
+                
+                # Step 4: Set up git config
+                subprocess.run(['git', 'config', 'user.name', user_preferences.get('git_username', 'Unknown')], 
+                             cwd=new_repo_path, check=True, capture_output=True)
+                subprocess.run(['git', 'config', 'user.email', user_preferences.get('git_email', 'unknown@example.com')], 
+                             cwd=new_repo_path, check=True, capture_output=True)
+                
+                # Step 5: Add remote origin
+                status_tracker.add_output_line(f"🌐 Adding remote origin: {target_url}", "git")
+                subprocess.run(['git', 'remote', 'add', 'origin', target_url], 
+                             cwd=new_repo_path, check=True, capture_output=True)
+                
+                # Step 6: Add all files and create initial commit
+                status_tracker.add_output_line("📝 Creating initial commit...", "git")
+                subprocess.run(['git', 'add', '.'], cwd=new_repo_path, check=True, capture_output=True)
+                subprocess.run(['git', 'commit', '-m', 'Initial commit'], 
+                             cwd=new_repo_path, check=True, capture_output=True)
+                
+                # Step 7: Push to remote repository
+                status_tracker.add_output_line("⬆️ Pushing to remote repository...", "git")
+                result = subprocess.run(['git', 'push', '-u', 'origin', 'main'], 
+                                      cwd=new_repo_path, check=True, 
+                                      capture_output=True, text=True)
+                
+                # Step 8: Replace original project with cloned version
+                status_tracker.add_output_line("🔄 Updating local project directory...", "git")
+                
+                # Backup original
+                backup_path = f"{project_path}_backup_{int(time.time())}"
+                shutil.move(project_path, backup_path)
+                
+                # Move new repo to original location
+                shutil.move(new_repo_path, project_path)
+                
+                status_tracker.add_output_line(f"✅ Successfully cloned to {target_url}", "git")
+                status_tracker.add_output_line(f"📁 Original backed up to: {backup_path}", "git")
+                
+                return {
+                    "success": True,
+                    "message": f"Successfully cloned project to {target_url}",
+                    "new_remote_url": target_url,
+                    "backup_path": backup_path,
+                    "cloned_path": project_path
+                }
+                
+            finally:
+                # Cleanup temp directory
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Git command failed: {e.stderr.decode() if e.stderr else str(e)}"
+            status_tracker.add_output_line(f"❌ {error_msg}", "git")
+            return {
+                "success": False,
+                "message": error_msg
+            }
+        except Exception as e:
+            error_msg = f"Repository cloning failed: {str(e)}"
+            status_tracker.add_output_line(f"❌ {error_msg}", "git")
+            return {
+                "success": False,
+                "message": error_msg
+            }
+
     def setup_repository_destination(self, project_path: str, original_url: str, 
                                    target_url: str, user_preferences: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -111,6 +224,10 @@ class GitAgent(BaseAgent):
             Dictionary with setup results
         """
         try:
+            # If target_url is provided, clone to new repository instead
+            if target_url and target_url.strip():
+                return self.clone_to_new_repository(project_path, target_url, user_preferences)
+            
             # Validate target URL
             validation = self.validate_repository_url(target_url)
             if not validation["valid"]:

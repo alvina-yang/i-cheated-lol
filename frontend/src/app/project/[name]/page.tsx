@@ -75,6 +75,7 @@ export default function ProjectPage() {
   const [hackathonDuration, setHackathonDuration] = useState('48');
   const [gitUsername, setGitUsername] = useState('');
   const [gitEmail, setGitEmail] = useState('');
+  const [targetRepositoryUrl, setTargetRepositoryUrl] = useState('');
   const [addComments, setAddComments] = useState(true);
   
   // Progress tracking state
@@ -463,6 +464,7 @@ export default function ProjectPage() {
           hackathon_duration: parseInt(hackathonDuration),
           git_username: gitUsername,
           git_email: gitEmail,
+          target_repository_url: targetRepositoryUrl,
           add_comments: addComments
         })
       });
@@ -478,10 +480,10 @@ export default function ProjectPage() {
       setTimeout(() => {
         stopStatusStreaming();
         setUntraceabilityLoading(false);
-        alert('Project successfully made untraceable! 🕵️‍♂️');
-        
-        // Refresh the project to show updated files
-        fetchProjectFiles();
+      alert('Project successfully made untraceable! 🕵️‍♂️');
+      
+      // Refresh the project to show updated files
+      fetchProjectFiles();
       }, 5000);
       
     } catch (err) {
@@ -592,11 +594,15 @@ export default function ProjectPage() {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {/* Always visible Begin Untraceability button */}
             <AlertDialog open={showUntraceabilityModal} onOpenChange={setShowUntraceabilityModal}>
               <AlertDialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Begin Untraceability
+                <Button 
+                  className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-medium px-4 py-2 flex items-center space-x-2 transition-all duration-200 hover:shadow-lg"
+                  disabled={untraceabilityLoading}
+                >
+                  <Shield className="h-4 w-4" />
+                  <span>Begin Untraceability</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent className="bg-zinc-900 border-zinc-700 max-w-md">
@@ -684,6 +690,24 @@ export default function ProjectPage() {
                       placeholder="john@example.com"
                       required
                     />
+                  </div>
+
+                  {/* Target Repository URL */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-300 flex items-center">
+                      <GitBranch className="h-4 w-4 mr-2" />
+                      Target Repository URL (Optional)
+                    </label>
+                    <Input
+                      type="url"
+                      value={targetRepositoryUrl}
+                      onChange={(e) => setTargetRepositoryUrl(e.target.value)}
+                      className="bg-zinc-800 border-zinc-700 text-white"
+                      placeholder="https://github.com/yourusername/your-empty-repo.git"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      Leave empty to modify the current repository, or provide an empty repository URL to clone the project there
+                    </p>
                   </div>
 
                   {/* Options */}

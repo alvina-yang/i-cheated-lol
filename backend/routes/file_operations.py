@@ -274,4 +274,66 @@ async def delete_presentation_script(project_name: str):
             return {"success": False, "message": "No presentation script found"}
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting presentation script: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error deleting presentation script: {str(e)}")
+
+
+@router.get("/file-metadata/{project_name}")
+async def get_file_metadata(project_name: str):
+    """Get file analysis metadata for a project"""
+    try:
+        from app import agents
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build project path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        
+        # Validate project exists
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+        
+        # Get file metadata
+        metadata = agents['file_analysis'].get_file_metadata(project_path)
+        
+        if metadata:
+            return {
+                "success": True,
+                "project_name": project_name,
+                "metadata": metadata
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No file analysis metadata found",
+                "project_name": project_name
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving file metadata: {str(e)}")
+
+
+@router.post("/analyze-files/{project_name}")
+async def trigger_file_analysis(project_name: str):
+    """Manually trigger file analysis for a project"""
+    try:
+        from app import agents
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build project path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        
+        # Validate project exists
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+        
+        # Run file analysis
+        result = await agents['file_analysis'].analyze_project_files(project_path)
+        
+        return {
+            "success": result.get("success", False),
+            "message": result.get("message", "Unknown error"),
+            "total_files": result.get("total_files", 0),
+            "project_name": project_name
+        }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error triggering file analysis: {str(e)}") 

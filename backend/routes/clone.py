@@ -4,8 +4,9 @@ Clone routes for the Chameleon Hackathon Discovery API
 
 import os
 import json
+import asyncio
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from models import CloneRequest, CloneResponse
 from core.enhanced_config import EnhancedConfig
@@ -14,8 +15,48 @@ from utils.status_tracker import get_global_tracker
 router = APIRouter(prefix="/api", tags=["clone"])
 
 
+async def run_file_analysis_async(project_name: str, project_path: str):
+    """Run file analysis in the background after project clone."""
+    try:
+        from app import agents  # Import agents from main app
+        status_tracker = get_global_tracker()
+        
+        # Create a task for file analysis tracking
+        analysis_task = status_tracker.create_task(
+            "file_analysis",
+            "File Analysis",
+            f"Analyzing files for {project_name}"
+        )
+        
+        status_tracker.start_task("file_analysis")
+        status_tracker.add_output_line(f"🔍 Starting file analysis for {project_name}...")
+        print(f"🔍 Starting file analysis for {project_name}...")
+        
+        # Run file analysis
+        result = await agents['file_analysis'].analyze_project_files(project_path)
+        
+        if result.get('success', False):
+            total_files = result.get('total_files', 0)
+            success_msg = f"✅ File analysis complete for {project_name}! Analyzed {total_files} files."
+            status_tracker.complete_task("file_analysis", success_msg)
+            status_tracker.add_output_line(success_msg)
+            print(success_msg)
+        else:
+            error_msg = f"⚠️ File analysis failed for {project_name}: {result.get('message', 'Unknown error')}"
+            status_tracker.fail_task("file_analysis", "Analysis failed", error_msg)
+            status_tracker.add_output_line(error_msg)
+            print(error_msg)
+            
+    except Exception as e:
+        status_tracker = get_global_tracker()
+        error_msg = f"❌ File analysis error for {project_name}: {str(e)}"
+        status_tracker.fail_task("file_analysis", str(e), error_msg)
+        status_tracker.add_output_line(error_msg)
+        print(error_msg)
+
+
 @router.post("/clone", response_model=CloneResponse)
-async def clone_project(request: CloneRequest):
+async def clone_project(request: CloneRequest, background_tasks: BackgroundTasks):
     """Clone the selected project to local filesystem"""
     try:
         from app import agents  # Import agents from main app
@@ -100,6 +141,16 @@ async def clone_project(request: CloneRequest):
                     
             except Exception as e:
                 print(f"⚠️ Failed to save metadata: {e}")
+            
+            # Trigger file analysis in the background
+            print(f"🚀 Triggering file analysis for {request.project_name} at {location}")
+            status_tracker.add_output_line(f"🚀 Scheduling file analysis for {request.project_name}...")
+            
+            background_tasks.add_task(
+                run_file_analysis_async,
+                request.project_name,
+                location
+            )
             
             status_tracker.complete_task("clone_project", f"Successfully cloned {request.project_name}")
             status_tracker.clear_current_operation()

@@ -32,6 +32,7 @@ import { useRouter } from "next/navigation";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import GitHistoryViewer from "@/components/GitHistoryViewer";
+import EditableCodeEditor from "@/components/EditableCodeEditor";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { FileNode, ProjectData, TeamMember, DiffData } from "./types";
@@ -79,6 +80,9 @@ export default function ProjectPage() {
   
   // Git history viewer state
   const [showGitHistory, setShowGitHistory] = useState(false);
+  
+  // Editor reference for undo functionality
+  const [editorRef, setEditorRef] = useState<any>(null);
   
   // Removed all streaming functions
 
@@ -135,11 +139,21 @@ export default function ProjectPage() {
         setShowDiffModal(true);
         
         // Update the file content in the current view (strip markdown wrapper)
+        const newContent = stripMarkdownWrapper(result.modified_content);
         const updatedFile = {
           ...selectedFile,
-          content: stripMarkdownWrapper(result.modified_content)
+          content: newContent
         };
         setSelectedFile(updatedFile);
+        
+        // Update the editor with the new content and add to history
+        if (editorRef) {
+          const operationName = operation === 'add-comments' ? 'add_comments' : 'rename_variables';
+          const description = operation === 'add-comments' 
+            ? `Added ${result.lines_added} comment lines` 
+            : `Renamed ${result.variables_changed} variables`;
+          editorRef.updateContent(newContent, operationName, description);
+        }
         
         // No need to refresh project files since we're updating the content directly
         // This prevents losing the current file selection
@@ -153,6 +167,27 @@ export default function ProjectPage() {
     } finally {
       setFileOperationLoading(null);
     }
+  };
+
+  // Handle file save from the editor
+  const handleFileSave = async (content: string) => {
+    if (!selectedFile) return;
+    
+    const response = await fetch(`http://localhost:8000/api/file/save/${projectName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        file_path: selectedFile.path,
+        content: content
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save file');
+    }
+
+    // Update the selected file with the new content
+    setSelectedFile(prev => prev ? { ...prev, content } : null);
   };
 
   useEffect(() => {
@@ -363,6 +398,19 @@ export default function ProjectPage() {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Global Undo Button */}
+            {editorRef && (
+              <Button 
+                variant="outline"
+                onClick={editorRef.undo}
+                disabled={!editorRef.canUndo()}
+                className="border-zinc-600 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-50"
+                title="Global Undo (Cmd+Z) - Undo edits, saves, comments, and variable changes"
+              >
+                Undo
+              </Button>
+            )}
+            
             {/* Presentation Script Button */}
             <Button 
               variant="outline"
@@ -785,31 +833,16 @@ export default function ProjectPage() {
               {/* File Content */}
               <div className="flex-1 overflow-hidden">
                 {selectedFile.content ? (
-                  <div className="h-full overflow-auto p-6">
-                    <SyntaxHighlighter
-                      language={getSyntaxLanguage(selectedFile.extension || '', selectedFile.content)}
-                      style={vscDarkPlus}
-                      customStyle={{
-                        margin: 0,
-                        padding: '1rem',
-                        background: 'transparent',
-                        fontSize: '0.875rem',
-                        lineHeight: '1.5'
-                      }}
-                      showLineNumbers={true}
-                      lineNumberStyle={{
-                        color: '#6b7280',
-                        borderRight: '1px solid #374151',
-                        paddingRight: '1rem',
-                        marginRight: '1rem',
-                        minWidth: '3rem'
-                      }}
-                      wrapLines={true}
-                      wrapLongLines={true}
-                    >
-                      {stripMarkdownWrapper(selectedFile.content)}
-                    </SyntaxHighlighter>
-                  </div>
+                  <EditableCodeEditor
+                    value={stripMarkdownWrapper(selectedFile.content)}
+                    language={getSyntaxLanguage(selectedFile.extension || '', selectedFile.content)}
+                    fileName={selectedFile.name}
+                    projectName={projectName}
+                    filePath={selectedFile.path}
+                    onSave={handleFileSave}
+                    onReady={setEditorRef}
+                    height="100%"
+                  />
                 ) : (
                   <div className="h-full flex items-center justify-center text-zinc-500">
                     <div className="text-center">

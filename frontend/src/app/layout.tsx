@@ -13,7 +13,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="dark bg-black text-white antialiased">
+      <body 
+        className="dark bg-black text-white antialiased"
+        suppressHydrationWarning={true}
+      >
         {children}
       </body>
     </html>

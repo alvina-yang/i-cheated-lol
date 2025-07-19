@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,8 @@ import {
   User,
   MessageCircle,
   Variable,
-  Loader2
+  Loader2,
+  Presentation
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -77,7 +79,7 @@ export default function ProjectPage() {
   
   // Git history viewer state
   const [showGitHistory, setShowGitHistory] = useState(false);
-
+  
   // Removed all streaming functions
 
   // Team member management handlers
@@ -361,6 +363,16 @@ export default function ProjectPage() {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Presentation Script Button */}
+            <Button 
+              variant="outline"
+              onClick={() => router.push(`/presentation/${encodeURIComponent(projectName)}`)}
+              className="border-orange-600 text-orange-400 hover:bg-orange-600 hover:text-white"
+            >
+              <Presentation className="h-4 w-4 mr-2" />
+              View Pitch Script
+            </Button>
+            
             {/* Git History Button */}
             <Button 
               variant="outline"
@@ -837,6 +849,8 @@ export default function ProjectPage() {
         isVisible={showGitHistory}
         onClose={() => setShowGitHistory(false)}
       />
+      
+
     </div>
   );
 } 

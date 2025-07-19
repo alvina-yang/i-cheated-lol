@@ -8,11 +8,13 @@ from .validator_prompts import ValidatorPrompts
 
 from .code_modifier_prompts import CodeModifierPrompts
 from .git_prompts import GitPrompts
+from .presentation_prompts import PresentationPrompts
 
 __all__ = [
     'SearchPrompts',
     'ValidatorPrompts',
 
     'CodeModifierPrompts',
-    'GitPrompts'
+    'GitPrompts',
+    'PresentationPrompts'
 ] 

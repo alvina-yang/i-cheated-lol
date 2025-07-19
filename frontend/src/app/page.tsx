@@ -57,8 +57,11 @@ export default function Home() {
       const [, owner, repo] = match;
       const projectName = `${owner}-${repo}`;
       
-      // Navigate to project page (it will handle cloning)
-      router.push(`/project/${encodeURIComponent(projectName)}?github_url=${encodeURIComponent(githubUrl)}`);
+      // Navigate to results page with the project name
+      const params = new URLSearchParams();
+      params.set('project', projectName);
+      params.set('clone_url', githubUrl);
+      router.push(`/results?${params.toString()}`);
     } catch (error) {
       console.error('Error processing GitHub URL:', error);
       alert('Error processing GitHub URL');
@@ -127,7 +130,8 @@ export default function Home() {
                 <Button
                   type="submit"
                   disabled={isNavigating || !githubUrl.trim()}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-6 text-lg transition-all duration-200"
+                  variant="outline"
+                  className="w-full border-purple-500 hover:bg-purple-500/10 text-purple-500 font-semibold py-6 text-lg transition-all duration-200"
                 >
                   {isNavigating ? 'Cloning Repository...' : 'Clone Repository'}
                 </Button>

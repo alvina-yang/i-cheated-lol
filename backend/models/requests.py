@@ -45,4 +45,8 @@ class EnhancedUntraceabilityRequest(BaseModel):
 
 class SettingsUpdateRequest(BaseModel):
     setting_type: str  # 'user', 'repository', 'processing', 'terminal'
-    settings: Dict[str, Union[str, bool, int, float]] 
+    settings: Dict[str, Union[str, bool, int, float]]
+
+
+class PresentationScriptRequest(BaseModel):
+    project_name: str 

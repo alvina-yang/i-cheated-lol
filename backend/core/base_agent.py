@@ -5,7 +5,8 @@ Provides common functionality and interface for agent implementations.
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI  # Commented out for Groq
+from groq import Groq
 from .config import Config
 
 
@@ -32,11 +33,15 @@ class BaseAgent(ABC):
         self.config.validate()
         
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.config.LLM_MODEL,
-            api_key=self.config.OPENAI_API_KEY,
-            temperature=temperature or self.config.LLM_TEMPERATURE
+        # self.llm = ChatOpenAI(  # Commented out for Groq
+        #     model=self.config.LLM_MODEL,
+        #     api_key=self.config.OPENAI_API_KEY,
+        #     temperature=temperature or self.config.LLM_TEMPERATURE
+        # )
+        self.llm = Groq(
+            api_key=self.config.GROQ_API_KEY
         )
+        self.temperature = temperature or self.config.LLM_TEMPERATURE
         
         self.log(f"Initialized {self.agent_name}")
     
@@ -99,8 +104,20 @@ class BaseAgent(ABC):
             LLM response (string or parsed JSON if parse_json=True)
         """
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content
+            # Original LangChain method (commented out for Groq)
+            # response = self.llm.invoke(prompt)
+            # content = response.content
+            
+            # Groq API call
+            response = self.llm.chat.completions.create(
+                model=self.config.LLM_MODEL,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=self.temperature,
+                max_tokens=2048
+            )
+            content = response.choices[0].message.content
             
             if parse_json:
                 import json

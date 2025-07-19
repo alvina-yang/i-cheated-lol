@@ -54,7 +54,13 @@ function ResultsPageContent() {
 
   useEffect(() => {
     const technologies = searchParams.get('technologies');
-    if (typeof technologies === 'string') {
+    const projectName = searchParams.get('project');
+    const cloneUrl = searchParams.get('clone_url');
+
+    if (cloneUrl && projectName) {
+      // If we have a clone URL, directly clone and navigate
+      handleDirectClone(projectName, cloneUrl);
+    } else if (typeof technologies === 'string') {
       handleSearch(technologies);
     } else {
       setIsSearching(false);
@@ -83,6 +89,22 @@ function ResultsPageContent() {
       setError(err.response?.data?.detail || "Failed to search for projects");
     } finally {
       setTimeout(() => setIsSearching(false), 500);
+    }
+  };
+
+  const handleDirectClone = async (projectName: string, cloneUrl: string) => {
+    try {
+      const response = await axios.post("http://localhost:8000/api/clone", {
+        project_name: projectName,
+        project_url: cloneUrl,
+        clone_url: cloneUrl.endsWith('.git') ? cloneUrl : `${cloneUrl}.git`
+      });
+
+      // Navigate to the IDE page to view the stolen project
+      router.push(`/project/${encodeURIComponent(projectName)}`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to steal project");
+      throw err;
     }
   };
 

@@ -23,6 +23,7 @@ from agents.commit_agent import CommitAgent
 from agents.code_modifier_agent import CodeModifierAgent
 from agents.variable_renaming_agent import VariableRenamingAgent
 from agents.git_agent import GitAgent
+from agents.presentation_agent import PresentationAgent
 from utils.project_cloner import GitHubCloner
 from utils.status_tracker import StatusTracker, get_global_tracker, initialize_status_tracking
 
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
             'code_modifier': CodeModifierAgent(),
             'variable_renamer': VariableRenamingAgent(),
             'git': GitAgent(),
+            'presentation': PresentationAgent(),
             'cloner': GitHubCloner()
         }
         

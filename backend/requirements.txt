@@ -1,7 +1,8 @@
 # Core Dependencies
 langchain==0.2.16
-langchain-openai==0.1.23
+# langchain-openai==0.1.23  # Commented out for Groq
 langchain-community==0.2.16
+groq>=0.30.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0

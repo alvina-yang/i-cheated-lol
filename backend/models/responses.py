@@ -48,5 +48,14 @@ class SettingsResponse(BaseModel):
 class StatusResponse(BaseModel):
     current_operation: Optional[str] = None
     tasks: List[Dict[str, Any]] = []
+
+
+class PresentationScriptResponse(BaseModel):
+    success: bool
+    message: str
+    script: str = ""
+    project_name: str = ""
+    technologies: List[str] = []
+    structure_overview: str = ""
     recent_output: List[str] = []
     summary: Dict[str, Any] = {} 

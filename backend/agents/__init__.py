@@ -8,11 +8,13 @@ from .validator_agent import ValidatorAgent
 from .commit_agent import CommitAgent
 from .code_modifier_agent import CodeModifierAgent
 from .git_agent import GitAgent
+from .presentation_agent import PresentationAgent
 
 __all__ = [
     'TechnologyProjectSearchAgent',
     'ValidatorAgent',
     'CommitAgent',
     'CodeModifierAgent',
-    'GitAgent'
+    'GitAgent',
+    'PresentationAgent'
 ] 

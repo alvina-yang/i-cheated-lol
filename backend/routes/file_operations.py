@@ -3,11 +3,14 @@ File operations routes for per-file code modifications
 """
 
 import os
+import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any
 
 from utils.status_tracker import get_global_tracker
+from models.requests import PresentationScriptRequest
+from models.responses import PresentationScriptResponse
 
 router = APIRouter(prefix="/api/file", tags=["file-operations"])
 
@@ -158,4 +161,117 @@ async def get_file_content(project_name: str, file_path: str):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
+
+
+@router.post("/generate-presentation-script", response_model=PresentationScriptResponse)
+async def generate_presentation_script(request: PresentationScriptRequest):
+    """Generate a compelling presentation script for hackathon pitches"""
+    try:
+        from app import agents
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build project path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, request.project_name)
+        
+        # Validate project exists
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project not found: {request.project_name}")
+        
+        # Check if script already exists
+        script_path = os.path.join(project_path, ".chameleon", "presentation_script.json")
+        if os.path.exists(script_path):
+            try:
+                with open(script_path, 'r', encoding='utf-8') as f:
+                    saved_script = json.load(f)
+                    return PresentationScriptResponse(**saved_script)
+            except Exception as e:
+                # If there's an error reading the saved script, generate a new one
+                pass
+        
+        # Use the PresentationAgent to generate the script
+        result = agents['presentation'].generate_presentation_script(project_path, request.project_name)
+        
+        # Save the script if generation was successful
+        if result.get("success", False):
+            try:
+                # Create .chameleon directory if it doesn't exist
+                chameleon_dir = os.path.join(project_path, ".chameleon")
+                os.makedirs(chameleon_dir, exist_ok=True)
+                
+                # Save the script
+                with open(script_path, 'w', encoding='utf-8') as f:
+                    json.dump(result, f, indent=2)
+            except Exception as e:
+                print(f"Warning: Failed to save presentation script: {e}")
+        
+        return PresentationScriptResponse(
+            success=result.get("success", False),
+            message=result.get("message", "Unknown error"),
+            script=result.get("script", ""),
+            project_name=result.get("project_name", request.project_name),
+            technologies=result.get("technologies", []),
+            structure_overview=result.get("structure_overview", "")
+        )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating presentation script: {str(e)}")
+
+
+@router.get("/presentation-script/{project_name}", response_model=PresentationScriptResponse)
+async def get_presentation_script(project_name: str):
+    """Get the saved presentation script for a project"""
+    try:
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build project path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        
+        # Validate project exists
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+        
+        # Check for saved script
+        script_path = os.path.join(project_path, ".chameleon", "presentation_script.json")
+        if not os.path.exists(script_path):
+            return PresentationScriptResponse(
+                success=False,
+                message="No saved presentation script found",
+                project_name=project_name
+            )
+        
+        # Read and return the saved script
+        try:
+            with open(script_path, 'r', encoding='utf-8') as f:
+                saved_script = json.load(f)
+                return PresentationScriptResponse(**saved_script)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading saved script: {str(e)}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving presentation script: {str(e)}")
+
+
+@router.delete("/presentation-script/{project_name}")
+async def delete_presentation_script(project_name: str):
+    """Delete the saved presentation script for a project"""
+    try:
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build project path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        
+        # Validate project exists
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+        
+        # Delete the script if it exists
+        script_path = os.path.join(project_path, ".chameleon", "presentation_script.json")
+        if os.path.exists(script_path):
+            os.remove(script_path)
+            return {"success": True, "message": "Presentation script deleted"}
+        else:
+            return {"success": False, "message": "No presentation script found"}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting presentation script: {str(e)}") 

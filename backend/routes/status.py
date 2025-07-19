@@ -7,7 +7,6 @@ import asyncio
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from sse_starlette.sse import EventSourceResponse
 
 from models import StatusResponse
 from utils.status_tracker import get_global_tracker
@@ -53,45 +52,21 @@ async def stream_status():
                     "timestamp": datetime.now().isoformat()
                 }
                 
-                yield data
+                yield f"data: {json.dumps(data)}\n\n"
                 await asyncio.sleep(1)
                 
             except Exception as e:
-                yield {"error": str(e)}
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 break
     
-    return EventSourceResponse(generate())
+    return StreamingResponse(generate(), media_type="text/plain", headers={
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Content-Type": "text/event-stream"
+    })
 
 
 @router.get("/terminal/stream")
 async def stream_terminal():
-    """Stream real-time terminal output using Server-Sent Events"""
-    async def generate():
-        status_tracker = get_global_tracker()
-        last_position = 0
-        
-        while True:
-            try:
-                # Get all terminal output since last position
-                all_output = status_tracker.get_terminal_output()
-                if len(all_output) > last_position:
-                    new_output = all_output[last_position:]
-                    for line in new_output:
-                        yield {
-                            "type": "terminal_output",
-                            "content": line,
-                            "timestamp": datetime.now().isoformat()
-                        }
-                    last_position = len(all_output)
-                
-                await asyncio.sleep(0.5)  # More frequent updates for terminal
-                
-            except Exception as e:
-                yield {
-                    "type": "error",
-                    "content": f"Terminal stream error: {str(e)}",
-                    "timestamp": datetime.now().isoformat()
-                }
-                break
-    
-    return EventSourceResponse(generate()) 
+    """Disabled terminal streaming to avoid issues"""
+    return {"message": "Terminal streaming disabled"} 

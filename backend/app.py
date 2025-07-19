@@ -21,6 +21,7 @@ from agents.search_agent import TechnologyProjectSearchAgent
 from agents.validator_agent import ValidatorAgent
 from agents.commit_agent import CommitAgent
 from agents.code_modifier_agent import CodeModifierAgent
+from agents.variable_renaming_agent import VariableRenamingAgent
 from agents.git_agent import GitAgent
 from utils.project_cloner import GitHubCloner
 from utils.status_tracker import StatusTracker, get_global_tracker, initialize_status_tracking
@@ -34,6 +35,7 @@ from routes import (
     settings_router,
     project_router
 )
+from routes.file_operations import router as file_operations_router
 
 # Global instances
 agents = {}
@@ -62,6 +64,7 @@ async def lifespan(app: FastAPI):
             'validator': ValidatorAgent(),
             'commit': CommitAgent(),
             'code_modifier': CodeModifierAgent(),
+            'variable_renamer': VariableRenamingAgent(),
             'git': GitAgent(),
             'cloner': GitHubCloner()
         }
@@ -102,6 +105,7 @@ app.include_router(untraceable_router)
 app.include_router(status_router)
 app.include_router(settings_router)
 app.include_router(project_router)
+app.include_router(file_operations_router)
 
 
 @app.get("/")

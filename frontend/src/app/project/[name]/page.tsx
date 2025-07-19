@@ -34,6 +34,8 @@ import {
   Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface FileNode {
   name: string;
@@ -76,7 +78,12 @@ export default function ProjectPage() {
   const [gitUsername, setGitUsername] = useState('');
   const [gitEmail, setGitEmail] = useState('');
   const [targetRepositoryUrl, setTargetRepositoryUrl] = useState('');
-  const [addComments, setAddComments] = useState(true);
+  const [generateCommitMessages, setGenerateCommitMessages] = useState(false);
+  
+  // File operation state
+  const [fileOperationLoading, setFileOperationLoading] = useState<string | null>(null); // Track which operation is loading
+  const [showDiffModal, setShowDiffModal] = useState(false);
+  const [diffData, setDiffData] = useState<any>(null);
   
   // Progress tracking state
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -319,35 +326,133 @@ export default function ProjectPage() {
     ));
   };
 
-  const formatFileContent = (content: string, extension: string) => {
-    const language = getLanguageFromExtension(extension);
-    
-    // Basic syntax highlighting for common patterns
-    let highlighted = content;
-    
-    if (language === 'javascript' || language === 'typescript') {
-      highlighted = highlighted
-        .replace(/\b(const|let|var|function|class|import|export|return|if|else|for|while|try|catch)\b/g, '<span class="text-blue-400 font-semibold">$1</span>')
-        .replace(/\b(true|false|null|undefined)\b/g, '<span class="text-orange-400">$1</span>')
-        .replace(/"([^"]*)"/g, '<span class="text-green-400">"$1"</span>')
-        .replace(/'([^']*)'/g, '<span class="text-green-400">\'$1\'</span>')
-        .replace(/\/\/.*$/gm, '<span class="text-zinc-500 italic">$&</span>')
-        .replace(/\/\*[\s\S]*?\*\//g, '<span class="text-zinc-500 italic">$&</span>');
-    } else if (language === 'python') {
-      highlighted = highlighted
-        .replace(/\b(def|class|import|from|return|if|else|elif|for|while|try|except|with|as)\b/g, '<span class="text-blue-400 font-semibold">$1</span>')
-        .replace(/\b(True|False|None)\b/g, '<span class="text-orange-400">$1</span>')
-        .replace(/"([^"]*)"/g, '<span class="text-green-400">"$1"</span>')
-        .replace(/'([^']*)'/g, '<span class="text-green-400">\'$1\'</span>')
-        .replace(/#.*$/gm, '<span class="text-zinc-500 italic">$&</span>');
-    } else if (language === 'json') {
-      highlighted = highlighted
-        .replace(/"([^"]*)":/g, '<span class="text-blue-400">"$1"</span>:')
-        .replace(/:\s*"([^"]*)"/g, ': <span class="text-green-400">"$1"</span>')
-        .replace(/:\s*(true|false|null)\b/g, ': <span class="text-orange-400">$1</span>');
+  // Strip markdown code block wrappers from AI-modified content
+  const stripMarkdownWrapper = (content: string): string => {
+    // Remove markdown code block wrappers like ```typescript\n...content...\n```
+    const codeBlockRegex = /^```[\w-]*\n([\s\S]*?)\n```$/;
+    const match = content.match(codeBlockRegex);
+    if (match) {
+      return match[1]; // Return just the content inside the code block
     }
     
-    return highlighted;
+    // Also handle cases where there might be extra whitespace or no closing ```
+    const startRegex = /^```[\w-]*\n([\s\S]*)$/;
+    const startMatch = content.match(startRegex);
+    if (startMatch) {
+      let innerContent = startMatch[1];
+      // Remove trailing ``` if present
+      if (innerContent.endsWith('\n```')) {
+        innerContent = innerContent.slice(0, -4);
+      } else if (innerContent.endsWith('```')) {
+        innerContent = innerContent.slice(0, -3);
+      }
+      return innerContent;
+    }
+    
+    return content; // Return original if no wrapper found
+  };
+
+  // Map file extensions to syntax highlighter language identifiers
+  const getSyntaxLanguage = (extension: string, content?: string): string => {
+    const ext = extension.toLowerCase().replace('.', '');
+    
+    // Special handling for TSX files - detect if it contains JSX elements
+    if (ext === 'tsx') {
+      if (content && (content.includes('<') && content.includes('>'))) {
+        return 'jsx'; // Contains JSX elements, use JSX highlighting
+      }
+      return 'typescript'; // No JSX elements, use TypeScript highlighting
+    }
+    
+    const languageMap: { [key: string]: string } = {
+      'js': 'javascript',
+      'mjs': 'javascript',
+      'jsx': 'jsx',
+      'ts': 'typescript',
+      'tsx': 'jsx', // Default for TSX (overridden by logic above)
+      'py': 'python',
+      'pyw': 'python',
+      'java': 'java',
+      'c': 'c',
+      'cpp': 'cpp',
+      'cc': 'cpp',
+      'cxx': 'cpp',
+      'c++': 'cpp',
+      'h': 'c',
+      'hpp': 'cpp',
+      'hxx': 'cpp',
+      'cs': 'csharp',
+      'php': 'php',
+      'php3': 'php',
+      'php4': 'php',
+      'php5': 'php',
+      'phtml': 'php',
+      'rb': 'ruby',
+      'ruby': 'ruby',
+      'go': 'go',
+      'rs': 'rust',
+      'swift': 'swift',
+      'kt': 'kotlin',
+      'kts': 'kotlin',
+      'scala': 'scala',
+      'sc': 'scala',
+      'sh': 'bash',
+      'bash': 'bash',
+      'zsh': 'bash',
+      'fish': 'bash',
+      'ps1': 'powershell',
+      'psm1': 'powershell',
+      'sql': 'sql',
+      'mysql': 'sql',
+      'pgsql': 'sql',
+      'html': 'markup',
+      'htm': 'markup',
+      'xhtml': 'markup',
+      'xml': 'markup',
+      'svg': 'markup',
+      'css': 'css',
+      'scss': 'scss',
+      'sass': 'sass',
+      'less': 'less',
+      'json': 'json',
+      'json5': 'json5',
+      'jsonc': 'json',
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      'toml': 'toml',
+      'ini': 'ini',
+      'cfg': 'ini',
+      'conf': 'nginx',
+      'dockerfile': 'docker',
+      'containerfile': 'docker',
+      'md': 'markdown',
+      'markdown': 'markdown',
+      'mdx': 'mdx',
+      'tex': 'latex',
+      'r': 'r',
+      'rmd': 'r',
+      'matlab': 'matlab',
+      'm': 'objectivec', // Could be Objective-C or MATLAB
+      'mm': 'objectivec',
+      'pl': 'perl',
+      'pm': 'perl',
+      'lua': 'lua',
+      'vim': 'vim',
+      'makefile': 'makefile',
+      'mk': 'makefile',
+      'cmake': 'cmake',
+      'gradle': 'gradle',
+      'groovy': 'groovy',
+      'clj': 'clojure',
+      'cljs': 'clojure',
+      'hs': 'haskell',
+      'elm': 'elm',
+      'dart': 'dart',
+      'vue': 'markup', // Vue files are essentially HTML templates
+      'svelte': 'markup'
+    };
+    
+    return languageMap[ext] || 'javascript'; // Default to JavaScript for better highlighting than 'text'
   };
 
   const startStatusStreaming = () => {
@@ -439,8 +544,15 @@ export default function ProjectPage() {
   };
 
   const handleUntraceability = async () => {
-    if (!hackathonDate || !hackathonStartTime || !hackathonDuration || !gitUsername || !gitEmail) {
-      alert('Please fill in all required fields');
+    // Only validate git fields if commit generation is enabled
+    if (generateCommitMessages && (!hackathonDate || !hackathonStartTime || !hackathonDuration)) {
+      alert('Please fill in hackathon date, time, and duration for git commit generation');
+      return;
+    }
+    
+    // Ensure git commit generation is selected (since other options are now per-file)
+    if (!generateCommitMessages) {
+      alert('Please enable git commit generation to make the project untraceable');
       return;
     }
 
@@ -465,7 +577,7 @@ export default function ProjectPage() {
           git_username: gitUsername,
           git_email: gitEmail,
           target_repository_url: targetRepositoryUrl,
-          add_comments: addComments
+          generate_commit_messages: generateCommitMessages
         })
       });
 
@@ -536,6 +648,61 @@ export default function ProjectPage() {
         <span className="flex-1 text-xs">{message}</span>
       </div>
     );
+  };
+
+  // File operation handlers
+  const handleFileOperation = async (operation: 'add-comments' | 'rename-variables') => {
+    if (!selectedFile) return;
+    
+    setFileOperationLoading(operation);
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/file/${operation}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_name: projectName,
+          file_path: selectedFile.path
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${operation.replace('-', ' ')}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Show diff modal with changes
+        setDiffData({
+          operation: operation.replace('-', ' '),
+          fileName: selectedFile.name,
+          originalContent: result.original_content,
+          modifiedContent: result.modified_content,
+          changesSummary: result.changes_summary,
+          linesAdded: result.lines_added,
+          variablesChanged: result.variables_changed
+        });
+        setShowDiffModal(true);
+        
+        // Update the file content in the current view (strip markdown wrapper)
+        setSelectedFile({
+          ...selectedFile,
+          content: stripMarkdownWrapper(result.modified_content)
+        });
+        
+        // Refresh project files to get updated content
+        fetchProjectFiles();
+      } else {
+        alert(`Failed to ${operation.replace('-', ' ')}: ${result.message}`);
+      }
+      
+    } catch (err) {
+      console.error(`Error in ${operation}:`, err);
+      alert(`Failed to ${operation.replace('-', ' ')}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setFileOperationLoading(null);
+    }
   };
 
   // Cleanup on unmount
@@ -612,7 +779,7 @@ export default function ProjectPage() {
                     Make Project Untraceable
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-zinc-300">
-                    This will rewrite git history, modify commit dates, change author info, and optionally add comments and rename variables to make the project appear as if it was created during a hackathon.
+                    This will rewrite git history to make your project appear as if it was created during a hackathon timeframe. You can also clone the project to your own repository.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 
@@ -621,43 +788,42 @@ export default function ProjectPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-300 flex items-center">
                       <Calendar className="h-4 w-4 mr-2" />
-                      Hackathon Date
+                      Hackathon Date {!generateCommitMessages && "(optional)"}
                     </label>
                     <Input
                       type="date"
                       value={hackathonDate}
                       onChange={(e) => setHackathonDate(e.target.value)}
                       className="bg-zinc-800 border-zinc-700 text-white"
-                      required
+                      placeholder={!generateCommitMessages ? "Only needed for git rewriting" : ""}
                     />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-300">
-                      Start Time
+                      Start Time {!generateCommitMessages && "(optional)"}
                     </label>
                     <Input
                       type="time"
                       value={hackathonStartTime}
                       onChange={(e) => setHackathonStartTime(e.target.value)}
                       className="bg-zinc-800 border-zinc-700 text-white"
-                      required
+                      placeholder={!generateCommitMessages ? "Only needed for git rewriting" : ""}
                     />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-300">
-                      Duration (hours)
+                      Duration (hours) {!generateCommitMessages && "(optional)"}
                     </label>
                     <Input
                       type="number"
                       value={hackathonDuration}
                       onChange={(e) => setHackathonDuration(e.target.value)}
                       className="bg-zinc-800 border-zinc-700 text-white"
-                      placeholder="48"
+                      placeholder={!generateCommitMessages ? "Only needed for git rewriting" : "48"}
                       min="1"
                       max="168"
-                      required
                     />
                   </div>
 
@@ -665,30 +831,28 @@ export default function ProjectPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-300 flex items-center">
                       <User className="h-4 w-4 mr-2" />
-                      Git Username
+                      Git Username {!generateCommitMessages && "(optional)"}
                     </label>
                     <Input
                       type="text"
                       value={gitUsername}
                       onChange={(e) => setGitUsername(e.target.value)}
                       className="bg-zinc-800 border-zinc-700 text-white"
-                      placeholder="john_doe"
-                      required
+                      placeholder="john_doe (optional for git rewriting)"
                     />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-300 flex items-center">
                       <Mail className="h-4 w-4 mr-2" />
-                      Git Email
+                      Git Email {!generateCommitMessages && "(optional)"}
                     </label>
                     <Input
                       type="email"
                       value={gitEmail}
                       onChange={(e) => setGitEmail(e.target.value)}
                       className="bg-zinc-800 border-zinc-700 text-white"
-                      placeholder="john@example.com"
-                      required
+                      placeholder="john@example.com (optional for git rewriting)"
                     />
                   </div>
 
@@ -715,17 +879,21 @@ export default function ProjectPage() {
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        id="addComments"
-                        checked={addComments}
-                        onChange={(e) => setAddComments(e.target.checked)}
+                        id="generateCommitMessages"
+                        checked={generateCommitMessages}
+                        onChange={(e) => setGenerateCommitMessages(e.target.checked)}
                         className="rounded border-zinc-600 bg-zinc-800"
                       />
-                      <label htmlFor="addComments" className="text-sm text-zinc-300 flex items-center">
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Add AI-generated comments to code
+                      <label htmlFor="generateCommitMessages" className="text-sm text-zinc-300 flex items-center">
+                        <GitBranch className="h-4 w-4 mr-2" />
+                        Generate AI commit messages and rewrite git history
                       </label>
                     </div>
                     
+                    <div className="text-sm text-zinc-400 bg-zinc-800 p-3 rounded-lg">
+                      <p className="font-medium mb-1">📝 Code Enhancement:</p>
+                      <p>Adding comments and renaming variables is now done per-file. Open any file and use the "Add Comments" or "Rename Variables" buttons.</p>
+                    </div>
 
                   </div>
                 </div>
@@ -923,6 +1091,107 @@ export default function ProjectPage() {
                 </div>
               </AlertDialogContent>
             </AlertDialog>
+
+            {/* Diff Modal */}
+            <AlertDialog open={showDiffModal} onOpenChange={setShowDiffModal}>
+              <AlertDialogContent className="bg-zinc-900 border-zinc-700 max-w-6xl max-h-[90vh] overflow-hidden">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-white flex items-center">
+                    <Code2 className="h-5 w-5 mr-2" />
+                    File Modified: {diffData?.fileName}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-zinc-300">
+                    {diffData?.changesSummary}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                
+                <div className="py-4 max-h-[70vh] overflow-y-auto">
+                  {diffData && (
+                    <div className="space-y-4">
+                      <div className="bg-zinc-800 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-zinc-300 mb-2">Changes Summary:</h4>
+                        <div className="flex space-x-4 text-sm">
+                          {diffData.linesAdded > 0 && (
+                            <span className="text-green-400">+{diffData.linesAdded} lines added</span>
+                          )}
+                          {diffData.variablesChanged > 0 && (
+                            <span className="text-blue-400">{diffData.variablesChanged} variables renamed</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="text-sm font-medium text-zinc-300 mb-2">Before:</h4>
+                          <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+                            <SyntaxHighlighter
+                              language={getSyntaxLanguage(diffData.fileName?.split('.').pop() || '', diffData.originalContent)}
+                              style={vscDarkPlus}
+                              customStyle={{
+                                margin: 0,
+                                padding: '1rem',
+                                background: 'transparent',
+                                fontSize: '0.75rem',
+                                lineHeight: '1.4',
+                                maxHeight: '24rem',
+                                overflow: 'auto'
+                              }}
+                              showLineNumbers={true}
+                              lineNumberStyle={{
+                                color: '#6b7280',
+                                borderRight: '1px solid #374151',
+                                paddingRight: '0.5rem',
+                                marginRight: '0.5rem',
+                                minWidth: '2rem'
+                              }}
+                            >
+                              {stripMarkdownWrapper(diffData.originalContent)}
+                            </SyntaxHighlighter>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-zinc-300 mb-2">After:</h4>
+                          <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+                            <SyntaxHighlighter
+                              language={getSyntaxLanguage(diffData.fileName?.split('.').pop() || '', diffData.modifiedContent)}
+                              style={vscDarkPlus}
+                              customStyle={{
+                                margin: 0,
+                                padding: '1rem',
+                                background: 'transparent',
+                                fontSize: '0.75rem',
+                                lineHeight: '1.4',
+                                maxHeight: '24rem',
+                                overflow: 'auto'
+                              }}
+                              showLineNumbers={true}
+                              lineNumberStyle={{
+                                color: '#6b7280',
+                                borderRight: '1px solid #374151',
+                                paddingRight: '0.5rem',
+                                marginRight: '0.5rem',
+                                minWidth: '2rem'
+                              }}
+                            >
+                              {stripMarkdownWrapper(diffData.modifiedContent)}
+                            </SyntaxHighlighter>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end border-t border-zinc-700 pt-4">
+                  <AlertDialogAction
+                    onClick={() => setShowDiffModal(false)}
+                    className="bg-zinc-700 hover:bg-zinc-600 text-white"
+                  >
+                    Close
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
             
             <Badge className="bg-zinc-800 text-zinc-300">
               {project.language}
@@ -979,6 +1248,29 @@ export default function ProjectPage() {
                     <span className="text-sm font-medium">{selectedFile.name}</span>
                   </div>
                   <div className="ml-auto flex space-x-2">
+                    {/* File enhancement buttons */}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-700"
+                      onClick={() => handleFileOperation('add-comments')}
+                      disabled={fileOperationLoading !== null}
+                    >
+                      <MessageCircle className="h-3 w-3 mr-1" />
+                      {fileOperationLoading === 'add-comments' ? 'Processing...' : 'Add Comments'}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-700"
+                      onClick={() => handleFileOperation('rename-variables')}
+                      disabled={fileOperationLoading !== null}
+                    >
+                      <Variable className="h-3 w-3 mr-1" />
+                      {fileOperationLoading === 'rename-variables' ? 'Processing...' : 'Rename Variables'}
+                    </Button>
+                    
+                    {/* Standard file operations */}
                     <Button variant="ghost" size="sm" className="h-7 px-2">
                       <Copy className="h-3 w-3 mr-1" />
                       Copy
@@ -995,17 +1287,29 @@ export default function ProjectPage() {
               <div className="flex-1 overflow-hidden">
                 {selectedFile.content ? (
                   <div className="h-full overflow-auto p-6">
-                    <pre className="text-sm leading-relaxed">
-                      <code 
-                        className="block whitespace-pre-wrap font-mono"
-                        dangerouslySetInnerHTML={{
-                          __html: formatFileContent(
-                            selectedFile.content,
-                            selectedFile.extension || ''
-                          )
-                        }}
-                      />
-                    </pre>
+                    <SyntaxHighlighter
+                      language={getSyntaxLanguage(selectedFile.extension || '', selectedFile.content)}
+                      style={vscDarkPlus}
+                      customStyle={{
+                        margin: 0,
+                        padding: '1rem',
+                        background: 'transparent',
+                        fontSize: '0.875rem',
+                        lineHeight: '1.5'
+                      }}
+                      showLineNumbers={true}
+                      lineNumberStyle={{
+                        color: '#6b7280',
+                        borderRight: '1px solid #374151',
+                        paddingRight: '1rem',
+                        marginRight: '1rem',
+                        minWidth: '3rem'
+                      }}
+                      wrapLines={true}
+                      wrapLongLines={true}
+                    >
+                      {stripMarkdownWrapper(selectedFile.content)}
+                    </SyntaxHighlighter>
                   </div>
                 ) : (
                   <div className="h-full flex items-center justify-center text-zinc-500">

@@ -141,10 +141,18 @@ class CommitAgent(BaseAgent):
             Dictionary with commit history results
         """
         try:
+            # Add status tracking
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            
+            status_tracker.add_output_line(f"🔄 Starting git history rewriting for {project_name}...", "git")
+            
             # Get current commit count
             original_commits = self._get_commit_count(project_path)
+            status_tracker.add_output_line(f"📊 Found {original_commits} existing commits", "git")
             
             if original_commits == 0:
+                status_tracker.add_output_line("❌ No commits found in project", "git")
                 return {
                     "success": False,
                     "message": "No commits found in project",
@@ -152,18 +160,26 @@ class CommitAgent(BaseAgent):
                 }
             
             # Generate commit sequence
+            status_tracker.add_output_line(f"🤖 Generating AI commit messages for {hackathon_duration}h hackathon timeline...", "git")
             commit_messages = self.generate_commit_sequence(
                 project_name, project_description, technologies, original_commits, hackathon_duration
             )
+            status_tracker.add_output_line(f"✅ Generated {len(commit_messages)} commit messages", "git")
             
             # Create new commit history
+            status_tracker.add_output_line(f"🔧 Rewriting git history with new timeline...", "git")
             result = self._rewrite_commit_history(
                 project_path, commit_messages, hackathon_start, hackathon_duration,
                 developer_name, developer_email
             )
             
+            if result:
+                status_tracker.add_output_line(f"✅ Successfully rewrote git history with {len(commit_messages)} commits", "git")
+            else:
+                status_tracker.add_output_line("❌ Failed to rewrite git history", "git")
+            
             return {
-                "success": True,
+                "success": result,
                 "message": f"Created hackathon commit history with {len(commit_messages)} commits",
                 "commits_created": len(commit_messages),
                 "commit_messages": commit_messages,
@@ -172,6 +188,9 @@ class CommitAgent(BaseAgent):
             }
             
         except Exception as e:
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            status_tracker.add_output_line(f"❌ Error creating hackathon commit history: {str(e)}", "git")
             print(f"❌ Error creating hackathon commit history: {e}")
             return {
                 "success": False,
@@ -212,7 +231,8 @@ class CommitAgent(BaseAgent):
         """
         try:
             # Import status tracker here to avoid circular imports
-            from backend.app import status_tracker
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
             
             status_tracker.add_output_line("🔄 Getting commit history...", "git")
             
@@ -261,7 +281,8 @@ class CommitAgent(BaseAgent):
         """Rewrite git history using direct git commands."""
         try:
             # Import status tracker here to avoid circular imports
-            from backend.app import status_tracker
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
             
             # Create a backup branch first
             status_tracker.add_output_line("🔄 Creating backup branch...", "git")

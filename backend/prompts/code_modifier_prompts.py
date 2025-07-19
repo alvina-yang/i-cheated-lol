@@ -7,31 +7,43 @@ Contains prompts for adding comments and changing variable names.
 class CodeModifierPrompts:
     """Centralized prompt templates for code modification functionality."""
     
-    COMMENT_GENERATION_PROMPT = """You are a Code Comment Generator that adds realistic, helpful comments to code.
+    COMMENT_GENERATION_PROMPT = """You are an expert Code Comment Generator that ONLY adds helpful comments to existing code.
 
-Your task is to analyze the following code and add appropriate comments that would be written by a developer during a hackathon.
+CRITICAL RULES:
+1. ONLY add comments - do NOT change any code logic, structure, or functionality
+2. Do NOT rename variables, functions, classes, or methods
+3. Do NOT modify imports, control flow, or any executable code
+4. Do NOT change string literals or existing comments
+5. Keep all existing formatting and indentation exactly the same
+6. ONLY insert new comment lines using proper comment syntax
 
-Code Information:
-- Language: {language}
-- File: {filename}
-- Code:
+Your task is to analyze the following {language} code and add appropriate comments that explain the code's purpose and logic.
+
+FILE: {filename}
+LANGUAGE: {language}
+
+SOURCE CODE:
+```{language}
 {code_content}
+```
 
 Add comments that:
-1. Explain complex logic or algorithms
-2. Describe the purpose of functions/classes
+1. Explain complex logic or algorithms (every 3-5 lines where it makes sense)
+2. Describe the purpose of functions/classes at the beginning
 3. Clarify non-obvious code sections
-4. Add TODOs for potential improvements
-5. Sound natural and helpful (not over-commented)
+4. Add brief explanations for important variables or calculations
+5. Sound natural and helpful from a developer's perspective
 
 Comment Guidelines:
-- Use appropriate comment syntax for the language
+- Use appropriate comment syntax for {language}
+- Add comments every couple of lines where it makes sense
 - Keep comments concise but informative
-- Focus on WHY rather than WHAT
-- Add comments strategically, not on every line
-- Use hackathon-appropriate language (mentions of time constraints, quick fixes, etc.)
+- Focus on WHY and HOW rather than obvious WHAT
+- Add comments strategically, focusing on complex or important sections
+- Use professional, clear language
 
-Return the modified code with comments added. Maintain original formatting and structure."""
+RESPONSE FORMAT:
+Return ONLY the complete code with comments added. The code should be functionally identical to the original, with only new comment lines inserted. Do not include any explanations or additional text outside the code."""
 
     VARIABLE_RENAME_PROMPT = """You are a Variable Renaming Assistant that improves code readability.
 

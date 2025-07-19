@@ -1,10 +1,11 @@
 """
-Code Modifier Agent for adding comments and changing variable names in source code.
+Code Modifier Agent for adding intelligent comments to source code.
 """
 
 import json
 import os
-import re
+import asyncio
+import concurrent.futures
 from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 
@@ -15,7 +16,8 @@ from core.config import Config
 
 class CodeModifierAgent(BaseAgent):
     """
-    Agent responsible for modifying source code by adding comments and improving variable names.
+    Agent responsible for adding intelligent comments to source code.
+    ONLY adds comments - does NOT modify code logic or rename variables.
     """
     
     def __init__(self):
@@ -119,6 +121,13 @@ class CodeModifierAgent(BaseAgent):
                     "message": f"Unsupported file type: {file_extension}"
                 }
             
+            # Skip very small files
+            if len(original_content.strip()) < 30:
+                return {
+                    "success": False,
+                    "message": "File too small for comment addition"
+                }
+            
             # Generate comment addition prompt
             prompt = self.code_modifier_prompts.get_comment_generation_prompt(
                 language, filename, original_content
@@ -148,6 +157,10 @@ class CodeModifierAgent(BaseAgent):
             modified_lines = len(modified_content.splitlines())
             lines_added = modified_lines - original_lines
             
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            status_tracker.add_output_line(f"💬 Added {lines_added} comment lines to {filename}", "code")
+            
             return {
                 "success": True,
                 "message": f"Added comments to {filename}",
@@ -166,73 +179,180 @@ class CodeModifierAgent(BaseAgent):
                 "file_path": file_path
             }
     
-    def rename_variables_in_file(self, file_path: str) -> Dict[str, Any]:
+    async def process_files_batch(self, files: List[str]) -> List[Dict[str, Any]]:
         """
-        Rename variables in a source code file to be more descriptive.
+        Process a batch of files in parallel for comment addition.
         
         Args:
-            file_path: Path to the source code file
+            files: List of file paths to process
             
         Returns:
-            Dictionary with modification results
+            List of processing results
+        """
+        loop = asyncio.get_event_loop()
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            tasks = [
+                loop.run_in_executor(executor, self.add_comments_to_file, file_path)
+                for file_path in files
+            ]
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Convert exceptions to error results
+            processed_results = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    processed_results.append({
+                        "success": False,
+                        "message": f"Error processing file: {str(result)}",
+                        "file_path": files[i]
+                    })
+                else:
+                    processed_results.append(result)
+            
+            return processed_results
+    
+    async def add_comments_to_project(self, project_path: str) -> Dict[str, Any]:
+        """
+        Add comments to all applicable files in a project using parallel processing.
+        
+        Args:
+            project_path: Path to the project directory
+            
+        Returns:
+            Dictionary with overall commenting results
         """
         try:
-            # Read original file
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                original_content = f.read()
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
             
-            # Get file info
-            file_extension = Path(file_path).suffix.lower()
-            language = self.supported_extensions.get(file_extension, 'unknown')
-            filename = os.path.basename(file_path)
+            status_tracker.add_output_line(f"🔍 Scanning project for code files to add comments...", "code")
             
-            if language == 'unknown':
+            # Find all code files in the project
+            code_files = self._find_code_files(project_path)
+            
+            if not code_files:
+                status_tracker.add_output_line("❌ No code files found for commenting", "code")
                 return {
                     "success": False,
-                    "message": f"Unsupported file type: {file_extension}"
+                    "message": "No code files found for commenting"
                 }
             
-            # Generate variable renaming prompt
-            prompt = self.code_modifier_prompts.get_variable_rename_prompt(
-                language, filename, original_content
-            )
+            status_tracker.add_output_line(f"📁 Found {len(code_files)} code files for commenting", "code")
             
-            response = self.llm.invoke(prompt)
-            modified_content = response.content.strip()
+            # Process files in batches for better performance
+            batch_size = 6  # Process 6 files at a time for comments (slower than variable renaming)
+            all_results = []
             
-            # Validate that the modified content is actually different
-            if modified_content == original_content:
-                return {
-                    "success": False,
-                    "message": "No variables were renamed in the file"
-                }
+            for i in range(0, len(code_files), batch_size):
+                batch = code_files[i:i + batch_size]
+                batch_num = i // batch_size + 1
+                total_batches = (len(code_files) + batch_size - 1) // batch_size
+                
+                status_tracker.add_output_line(f"🔄 Processing batch {batch_num}/{total_batches} ({len(batch)} files)...", "code")
+                
+                batch_results = await self.process_files_batch(batch)
+                all_results.extend(batch_results)
+                
+                # Log progress
+                successful = sum(1 for r in batch_results if r.get("success", False))
+                status_tracker.add_output_line(f"✅ Batch {batch_num} completed: {successful}/{len(batch)} files processed successfully", "code")
             
-            # Create backup
-            backup_path = file_path + '.backup'
-            with open(backup_path, 'w', encoding='utf-8') as f:
-                f.write(original_content)
+            # Calculate overall results
+            files_modified = sum(1 for r in all_results if r.get("success", False))
+            files_failed = len(all_results) - files_modified
+            total_lines_added = sum(r.get("lines_added", 0) for r in all_results if r.get("success", False))
             
-            # Write modified content
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(modified_content)
-            
-            # Calculate changes
-            changes_detected = self._analyze_variable_changes(original_content, modified_content)
+            status_tracker.add_output_line(f"💬 Comment addition completed: {files_modified} files modified, {total_lines_added} total comment lines added", "code")
             
             return {
                 "success": True,
-                "message": f"Renamed variables in {filename}",
-                "file_path": file_path,
-                "backup_path": backup_path,
-                "variables_changed": changes_detected
+                "message": f"Added comments to {files_modified} files ({total_lines_added} lines added)",
+                "files_processed": len(code_files),
+                "files_modified": files_modified,
+                "files_failed": files_failed,
+                "total_lines_added": total_lines_added,
+                "file_results": all_results
             }
             
         except Exception as e:
-            print(f"⚠️ Error renaming variables in {file_path}: {e}")
+            print(f"⚠️ Error in comment addition project: {e}")
             return {
                 "success": False,
-                "message": f"Failed to rename variables: {str(e)}",
-                "file_path": file_path
+                "message": f"Comment addition failed: {str(e)}"
+            }
+    
+    def add_comments_to_project_sync(self, project_path: str) -> Dict[str, Any]:
+        """
+        Add comments to all applicable files in a project using synchronous processing.
+        
+        Args:
+            project_path: Path to the project directory
+            
+        Returns:
+            Dictionary with overall commenting results
+        """
+        try:
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            
+            status_tracker.add_output_line(f"🔍 Scanning project for code files to add comments...", "code")
+            
+            # Find all code files in the project
+            code_files = self._find_code_files(project_path)
+            
+            if not code_files:
+                status_tracker.add_output_line("❌ No code files found for commenting", "code")
+                return {
+                    "success": False,
+                    "message": "No code files found for commenting"
+                }
+            
+            status_tracker.add_output_line(f"📁 Found {len(code_files)} code files for commenting", "code")
+            
+            # Process files one by one with detailed logging
+            files_modified = 0
+            files_failed = 0
+            total_lines_added = 0
+            
+            for i, file_path in enumerate(code_files):
+                file_name = os.path.basename(file_path)
+                status_tracker.add_output_line(f"💬 Processing file {i+1}/{len(code_files)}: {file_name}", "code")
+                
+                try:
+                    result = self.add_comments_to_file(file_path)
+                    
+                    if result.get("success", False):
+                        files_modified += 1
+                        lines_added = result.get("lines_added", 0)
+                        total_lines_added += lines_added
+                        status_tracker.add_output_line(f"  ✅ {file_name}: Added {lines_added} comment lines", "code")
+                    else:
+                        files_failed += 1
+                        error_msg = result.get("message", "Unknown error")
+                        status_tracker.add_output_line(f"  ⚠️ {file_name}: {error_msg}", "code")
+                        
+                except Exception as e:
+                    files_failed += 1
+                    status_tracker.add_output_line(f"  ❌ {file_name}: Error - {str(e)}", "code")
+            
+            status_tracker.add_output_line(f"💬 Comment addition summary: {files_modified} files modified, {files_failed} failed, {total_lines_added} total lines added", "code")
+            
+            return {
+                "success": files_modified > 0,
+                "message": f"Added comments to {files_modified} files ({total_lines_added} lines added)",
+                "files_processed": len(code_files),
+                "files_modified": files_modified,
+                "files_failed": files_failed,
+                "total_lines_added": total_lines_added
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Error in comment addition project: {e}")
+            return {
+                "success": False,
+                "message": f"Comment addition failed: {str(e)}"
             }
     
     def add_documentation_to_file(self, file_path: str) -> Dict[str, Any]:
@@ -367,16 +487,7 @@ class CodeModifierAgent(BaseAgent):
                         else:
                             status_tracker.add_output_line(f"  ⚠️ Failed to add comments to {file_name}: {comment_result.get('message', 'Unknown error')}", "code")
                     
-                    if 'variables' in modifications:
-                        status_tracker.add_output_line(f"  🔤 Renaming variables in {file_name}...", "code")
-                        variable_result = self.rename_variables_in_file(file_path)
-                        file_results["modifications"].append(variable_result)
-                        if variable_result["success"]:
-                            results["modifications_applied"].append(f"Renamed variables in {file_name}")
-                            file_modified = True
-                            status_tracker.add_output_line(f"  ✅ Variables renamed in {file_name}", "code")
-                        else:
-                            status_tracker.add_output_line(f"  ⚠️ Failed to rename variables in {file_name}: {variable_result.get('message', 'Unknown error')}", "code")
+
                     
                     if 'documentation' in modifications:
                         status_tracker.add_output_line(f"  📝 Adding documentation to {file_name}...", "code")
@@ -449,19 +560,6 @@ class CodeModifierAgent(BaseAgent):
         
         return code_files
     
-    def _analyze_variable_changes(self, original_content: str, modified_content: str) -> int:
-        """Analyze how many variables were changed."""
-        try:
-            # Simple heuristic: count lines that changed
-            original_lines = set(original_content.splitlines())
-            modified_lines = set(modified_content.splitlines())
-            
-            changes = len(original_lines.symmetric_difference(modified_lines))
-            return changes // 2  # Approximate number of variable changes
-            
-        except Exception:
-            return 0
-    
     def execute(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute code modification tasks.
@@ -480,8 +578,9 @@ class CodeModifierAgent(BaseAgent):
         elif task_type == "add_comments":
             return self.add_comments_to_file(task_data.get("file_path", ""))
         
-        elif task_type == "rename_variables":
-            return self.rename_variables_in_file(task_data.get("file_path", ""))
+        elif task_type == "add_comments_project":
+            # Use synchronous file-by-file processing
+            return self.add_comments_to_project_sync(task_data.get("project_path", ""))
         
         elif task_type == "add_documentation":
             return self.add_documentation_to_file(task_data.get("file_path", ""))

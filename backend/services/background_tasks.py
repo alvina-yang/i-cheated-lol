@@ -60,23 +60,23 @@ async def run_untraceable_process(project_name: str, project_path: str, request:
         
         # Skip code modification checks since these are now per-file operations
         
-        # Step 3: Git history rewriting with AI-generated commit messages (optional)
-        if request.generate_commit_messages and request.hackathon_date and request.hackathon_start_time:
+        # Step 3: Git history rewriting with commit messages (if date/time provided)
+        if request.hackathon_date and request.hackathon_start_time:
             # Use provided credentials or defaults
             git_username = request.git_username or "hackathon-dev"
             git_email = request.git_email or "dev@hackathon.local"
             
-            status_tracker.add_output_line("🔄 Starting git history rewriting with AI-generated commits...", "system")
+            status_tracker.add_output_line("🔄 Starting git history rewriting with generic commits...", "system")
             status_tracker.add_output_line(f"👤 Using git identity: {git_username} <{git_email}>", "system")
             
             git_task = status_tracker.create_task(
                 f"git_history_{project_name}",
                 "Rewrite git history",
-                "Generating AI commit messages and rewriting history..."
+                "Generating generic commit messages and rewriting history..."
             )
             
             status_tracker.start_task(git_task.id)
-            status_tracker.update_task(main_task_id, 60, "Rewriting git history with AI...")
+            status_tracker.update_task(main_task_id, 60, "Rewriting git history...")
             
             # Parse hackathon start time
             try:
@@ -116,12 +116,11 @@ async def run_untraceable_process(project_name: str, project_path: str, request:
                 
                 if commit_result["success"]:
                     commits_modified = commit_result.get("commits_created", 0)
-                    status_tracker.complete_task(git_task.id, f"Created {commits_modified} AI-generated commits")
+                    status_tracker.complete_task(git_task.id, f"Created {commits_modified} generic commits")
                 else:
                     status_tracker.fail_task(git_task.id, commit_result["message"], "Git history rewriting failed")
-        elif request.generate_commit_messages:
-            status_tracker.add_output_line("⚠️ Git commit generation requested but missing date/time information", "system")
         else:
+            status_tracker.add_output_line("⚠️ Skipping git history rewriting - no date/time provided", "system")
             status_tracker.add_output_line("⏭️ Skipping git history rewriting (disabled)", "system")
         
         # Step 4: Final commit if files were modified
@@ -135,11 +134,11 @@ async def run_untraceable_process(project_name: str, project_path: str, request:
             status_tracker.start_task(final_task.id)
             status_tracker.update_task(main_task_id, 90, "Creating final commit...")
             
-            # Create final commit with AI-generated message
+            # Create final commit with generic message
             try:
                 os.chdir(project_path)
                 
-                # Generate commit message using AI
+                # Generate commit message using generic bank
                 commit_messages = agents['commit'].generate_commit_messages(
                     project_name, [], f"{files_modified} files", "feature", "hackathon"
                 )
@@ -158,7 +157,7 @@ async def run_untraceable_process(project_name: str, project_path: str, request:
         # Complete main task
         status_tracker.add_output_line("🎉 Project enhancement completed successfully!", "system")
         status_tracker.add_output_line(f"📊 Summary: Modified {files_modified} files", "system")
-        if request.generate_commit_messages and 'commits_modified' in locals():
+        if 'commits_modified' in locals():
             status_tracker.add_output_line(f"📊 Summary: Modified {commits_modified} commits and {files_modified} files", "system")
         status_tracker.add_output_line(f"✅ {project_name} is now enhanced and ready!", "system")
         

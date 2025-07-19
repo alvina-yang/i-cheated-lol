@@ -9,7 +9,7 @@ import subprocess
 import asyncio
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 
 from core.enhanced_config import EnhancedConfig
 from utils.status_tracker import get_global_tracker
@@ -52,47 +52,7 @@ async def get_terminal_output(project_name: str):
         raise HTTPException(status_code=500, detail=f"Error getting terminal output: {str(e)}")
 
 
-@router.get("/project/{project_name}/stream-terminal")
-async def stream_terminal_output(project_name: str):
-    """Stream real-time terminal output for a project"""
-    async def generate():
-        status_tracker = get_global_tracker()
-        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
-        
-        if not os.path.exists(project_path):
-            yield f"data: {json.dumps({'error': 'Project not found'})}\n\n"
-            return
-        
-        last_output_count = 0
-        
-        while True:
-            try:
-                # Get recent output
-                recent_output = status_tracker.get_recent_output(100)
-                
-                # Send new output lines
-                if len(recent_output) > last_output_count:
-                    new_lines = recent_output[last_output_count:]
-                    
-                    # Send all new lines (no filtering) - let frontend handle display
-                    if new_lines:
-                        data = {
-                            "project_name": project_name,
-                            "new_lines": new_lines,
-                            "timestamp": datetime.now().isoformat()
-                        }
-                        
-                        yield f"data: {json.dumps(data)}\n\n"
-                    
-                    last_output_count = len(recent_output)
-                
-                await asyncio.sleep(0.5)  # Check every 500ms
-                
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                break
-    
-    return StreamingResponse(generate(), media_type="text/plain")
+
 
 
 @router.post("/project/{project_name}/execute-git-command")

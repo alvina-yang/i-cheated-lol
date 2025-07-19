@@ -117,7 +117,7 @@ class CommitAgent(BaseAgent):
                 }
             
             # Generate commit sequence
-            status_tracker.add_output_line(f"🤖 Generating AI commit messages for {hackathon_duration}h hackathon timeline...", "git")
+            status_tracker.add_output_line(f"🤖 Generating generic commit messages for {hackathon_duration}h hackathon timeline...", "git")
             commit_messages = self.generate_commit_sequence(
                 project_name, project_description, technologies, original_commits, hackathon_duration
             )

@@ -6,7 +6,7 @@ import json
 import asyncio
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+
 
 from models import StatusResponse
 from utils.status_tracker import get_global_tracker
@@ -66,7 +66,4 @@ async def stream_status():
     })
 
 
-@router.get("/terminal/stream")
-async def stream_terminal():
-    """Terminal streaming completely removed to avoid issues"""
-    return {"message": "Terminal streaming has been disabled", "success": True} 
+ 

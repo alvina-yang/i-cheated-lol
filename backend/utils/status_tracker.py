@@ -190,7 +190,7 @@ class StatusTracker:
         self.operation_start_time = None
     
     def add_output_line(self, line: str, source: str = "system"):
-        """Add a line of output (simplified - no terminal streaming)."""
+        """Add a line of output."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_line = f"[{timestamp}] [{source}] {line}"
         

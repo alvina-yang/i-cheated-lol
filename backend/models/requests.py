@@ -29,7 +29,7 @@ class EnhancedUntraceabilityRequest(BaseModel):
     hackathon_duration: int = 48  # Duration in hours - optional, only needed for git rewriting
     team_members: List[TeamMember] = []  # List of team members
     target_repository_url: str = ""
-    generate_commit_messages: bool = False  # Default to False so users opt-in
+
     
     # Backward compatibility properties
     @property

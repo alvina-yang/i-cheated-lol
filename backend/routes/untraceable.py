@@ -40,7 +40,7 @@ async def make_project_untraceable(project_name: str, request: EnhancedUntraceab
         
         # Update processing settings
         EnhancedConfig.update_processing_settings(
-            modify_commit_messages=request.generate_commit_messages
+            modify_commit_messages=True
         )
         
         # Create main untraceable task

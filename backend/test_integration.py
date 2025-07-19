@@ -31,7 +31,6 @@ def test_imports():
         
         from prompts.search_prompts import SearchPrompts
         from prompts.validator_prompts import ValidatorPrompts
-        from prompts.commit_prompts import CommitPrompts
         from prompts.code_modifier_prompts import CodeModifierPrompts
         from prompts.git_prompts import GitPrompts
         print("✅ All prompts imported successfully")
@@ -119,18 +118,11 @@ def test_agents():
         from agents.git_agent import GitAgent
         
         # Test prompt generation
-        from prompts.commit_prompts import CommitPrompts
         from prompts.code_modifier_prompts import CodeModifierPrompts
         from prompts.git_prompts import GitPrompts
         
-        commit_prompts = CommitPrompts()
         code_prompts = CodeModifierPrompts()
         git_prompts = GitPrompts()
-        
-        # Test prompt generation
-        commit_prompt = commit_prompts.get_commit_message_prompt(
-            "test_project", ["python", "javascript"], "3 files changed", "feature"
-        )
         
         code_prompt = code_prompts.get_comment_generation_prompt(
             "python", "test.py", "print('hello world')"

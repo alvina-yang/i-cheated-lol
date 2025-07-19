@@ -20,6 +20,7 @@ import {
   GitBranch,
   Shield,
   Calendar,
+  Clock,
   User,
   MessageCircle,
   Variable,
@@ -29,6 +30,8 @@ import { useRouter } from "next/navigation";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import GitHistoryViewer from "@/components/GitHistoryViewer";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { FileNode, ProjectData, TeamMember, DiffData } from "./types";
 import { 
   getFileIcon, 
@@ -55,7 +58,7 @@ export default function ProjectPage() {
   // Untraceability modal state
   const [showUntraceabilityModal, setShowUntraceabilityModal] = useState(false);
   const [untraceabilityLoading, setUntraceabilityLoading] = useState(false);
-  const [hackathonDate, setHackathonDate] = useState('');
+  const [hackathonDate, setHackathonDate] = useState<Date | undefined>(undefined);
   const [hackathonStartTime, setHackathonStartTime] = useState('');
   const [hackathonDuration, setHackathonDuration] = useState('48');
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -194,7 +197,7 @@ export default function ProjectPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          hackathon_date: hackathonDate,
+          hackathon_date: hackathonDate?.toISOString().split('T')[0],
           hackathon_start_time: hackathonStartTime,
           hackathon_duration: parseInt(hackathonDuration),
           team_members: teamMembers,
@@ -214,7 +217,7 @@ export default function ProjectPage() {
       setTimeout(() => {
         setUntraceabilityLoading(false);
         setShowProgressModal(false);
-        alert('Project successfully made untraceable! 🕵️‍♂️\n\nAll branches have been rewritten with generic commit messages and random team member attribution.');
+        alert('Project successfully made untraceable!');
         
         // Refresh the project to show updated files
         fetchProjectFiles();
@@ -380,23 +383,24 @@ export default function ProjectPage() {
                       <Calendar className="h-4 w-4 mr-2" />
                       Hackathon Date
                     </label>
-                    <Input
-                      type="date"
-                      value={hackathonDate}
-                      onChange={(e) => setHackathonDate(e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-white"
+                    <DatePicker
+                      date={hackathonDate}
+                      onDateChange={setHackathonDate}
+                      placeholder="Select hackathon date"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                          <label className="text-sm font-medium text-zinc-300">Start Time</label>
-                    <Input
-                      type="time"
+                    <label className="text-sm font-medium text-zinc-300 flex items-center">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Start Time
+                    </label>
+                    <TimePicker
                       value={hackathonStartTime}
-                      onChange={(e) => setHackathonStartTime(e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-white"
-                          />
-                        </div>
+                      onChange={setHackathonStartTime}
+                      placeholder="Select start time"
+                    />
+                  </div>
                       </div>
 
                       <div className="space-y-2">
@@ -532,9 +536,6 @@ export default function ProjectPage() {
                   <div className="text-center space-y-2">
                     <p className="text-lg font-medium text-zinc-300">
                       Rewriting Git History on All Branches
-                    </p>
-                    <p className="text-sm text-zinc-500">
-                      Generating generic commit messages and updating commit attribution...
                     </p>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 """
-Git Agent for handling git operations and terminal output streaming.
+Git Agent for handling git operations.
 """
 
 import json
@@ -21,7 +21,7 @@ from core.config import Config
 
 class GitAgent(BaseAgent):
     """
-    Agent responsible for git operations, repository management, and terminal output streaming.
+    Agent responsible for git operations and repository management.
     """
     
     def __init__(self):

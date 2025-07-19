@@ -118,7 +118,7 @@ async def root():
         "status": "running",
         "version": "2.0.0",
         "features": [
-            "AI-generated commit messages",
+            "Generic commit messages from predefined bank",
             "Real-time terminal output",
             "Enhanced code modification",
             "Configurable repository destinations",

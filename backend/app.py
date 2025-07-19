@@ -36,6 +36,7 @@ from routes import (
     project_router
 )
 from routes.file_operations import router as file_operations_router
+from routes.git import router as git_router
 
 # Global instances
 agents = {}
@@ -106,6 +107,7 @@ app.include_router(status_router)
 app.include_router(settings_router)
 app.include_router(project_router)
 app.include_router(file_operations_router)
+app.include_router(git_router)
 
 
 @app.get("/")

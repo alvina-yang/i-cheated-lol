@@ -125,10 +125,6 @@ async def execute_git_command(project_name: str, command: dict):
         # Execute command using git agent
         cmd_parts = git_command.split()
         
-        def progress_callback(progress, line):
-            status_tracker.update_task(task_id, progress, f"Git: {line}")
-            status_tracker.add_output_line(line, "git")
-        
         try:
             # Stream command output
             output_lines = []

@@ -2,25 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
   ArrowLeft, 
-  Folder, 
-  FolderOpen, 
-  File, 
+  Folder,
   Code2, 
-  FileText, 
   Image as ImageIcon,
-  Settings,
   Terminal,
   Search,
   ChevronRight,
-  ChevronDown,
   Copy,
   Download,
   Eye,
@@ -28,7 +21,6 @@ import {
   Shield,
   Calendar,
   User,
-  Mail,
   MessageCircle,
   Variable,
   Loader2
@@ -36,27 +28,18 @@ import {
 import { useRouter } from "next/navigation";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
-interface FileNode {
-  name: string;
-  type: 'file' | 'directory';
-  path: string;
-  content?: string;
-  size?: number;
-  extension?: string;
-  children?: FileNode[];
-}
-
-interface ProjectData {
-  name: string;
-  description: string;
-  technologies: string[];
-  stars: number;
-  forks: number;
-  language: string;
-  files: FileNode[];
-  readme?: string;
-}
+import GitHistoryViewer from "@/components/GitHistoryViewer";
+import { FileNode, ProjectData, TeamMember, DiffData } from "./types";
+import { 
+  getFileIcon, 
+  stripMarkdownWrapper, 
+  getSyntaxLanguage,
+  createAddTeamMember, 
+  createRemoveTeamMember, 
+  createUpdateTeamMember,
+  toggleFolder
+} from "./utils";
+import { API_ENDPOINTS } from "./constants/api";
 
 export default function ProjectPage() {
   const params = useParams();
@@ -75,33 +58,34 @@ export default function ProjectPage() {
   const [hackathonDate, setHackathonDate] = useState('');
   const [hackathonStartTime, setHackathonStartTime] = useState('');
   const [hackathonDuration, setHackathonDuration] = useState('48');
-  const [teamMembers, setTeamMembers] = useState<Array<{username: string, email: string, name: string}>>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [targetRepositoryUrl, setTargetRepositoryUrl] = useState('');
-  const [generateCommitMessages, setGenerateCommitMessages] = useState(false);
+
   
   // File operation state
   const [fileOperationLoading, setFileOperationLoading] = useState<string | null>(null);
   const [showDiffModal, setShowDiffModal] = useState(false);
-  const [diffData, setDiffData] = useState<any>(null);
+  const [diffData, setDiffData] = useState<DiffData | null>(null);
   
   // Progress tracking state (simplified)
   const [showProgressModal, setShowProgressModal] = useState(false);
+  
+  // Git history viewer state
+  const [showGitHistory, setShowGitHistory] = useState(false);
 
   // Removed all streaming functions
 
   // Team member management handlers
-  const addTeamMember = () => {
-    setTeamMembers([...teamMembers, { username: '', email: '', name: '' }]);
+  const handleAddTeamMember = () => {
+    setTeamMembers(createAddTeamMember(teamMembers));
   };
 
-  const removeTeamMember = (index: number) => {
-    setTeamMembers(teamMembers.filter((_, i) => i !== index));
+  const handleRemoveTeamMember = (index: number) => {
+    setTeamMembers(createRemoveTeamMember(teamMembers, index));
   };
 
-  const updateTeamMember = (index: number, field: string, value: string) => {
-    const updated = [...teamMembers];
-    updated[index] = { ...updated[index], [field]: value };
-    setTeamMembers(updated);
+  const handleUpdateTeamMember = (index: number, field: keyof TeamMember, value: string) => {
+    setTeamMembers(createUpdateTeamMember(teamMembers, index, field, value));
   };
 
   // File operation handlers
@@ -111,7 +95,11 @@ export default function ProjectPage() {
     setFileOperationLoading(operation);
     
     try {
-      const response = await fetch(`http://localhost:8000/api/file/${operation}`, {
+      const operationEndpoint = operation === 'add-comments' 
+        ? API_ENDPOINTS.FILE_OPERATIONS.ADD_COMMENTS 
+        : API_ENDPOINTS.FILE_OPERATIONS.RENAME_VARIABLES;
+      
+      const response = await fetch(operationEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,7 +157,7 @@ export default function ProjectPage() {
   const fetchProjectFiles = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/api/project/${encodeURIComponent(projectName)}/files`);
+      const response = await fetch(API_ENDPOINTS.PROJECT_FILES(projectName));
       
       if (!response.ok) {
         throw new Error('Failed to fetch project files');
@@ -185,145 +173,15 @@ export default function ProjectPage() {
     }
   };
 
-  // Strip markdown code block wrappers from AI-modified content
-  const stripMarkdownWrapper = (content: string): string => {
-    // Remove markdown code block wrappers like ```typescript\n...content...\n```
-    const codeBlockRegex = /^```[\w-]*\n([\s\S]*?)\n```$/;
-    const match = content.match(codeBlockRegex);
-    if (match) {
-      return match[1]; // Return just the content inside the code block
-    }
-    
-    // Also handle cases where there might be extra whitespace or no closing ```
-    const startRegex = /^```[\w-]*\n([\s\S]*)$/;
-    const startMatch = content.match(startRegex);
-    if (startMatch) {
-      let innerContent = startMatch[1];
-      // Remove trailing ``` if present
-      if (innerContent.endsWith('\n```')) {
-        innerContent = innerContent.slice(0, -4);
-      } else if (innerContent.endsWith('```')) {
-        innerContent = innerContent.slice(0, -3);
-      }
-      return innerContent;
-    }
-    
-    return content; // Return original if no wrapper found
-  };
 
-  // Map file extensions to syntax highlighter language identifiers
-  const getSyntaxLanguage = (extension: string, content?: string): string => {
-    const ext = extension.toLowerCase().replace('.', '');
-    
-    // Special handling for TSX files - detect if it contains JSX elements
-    if (ext === 'tsx') {
-      if (content && (content.includes('<') && content.includes('>'))) {
-        return 'jsx'; // Contains JSX elements, use JSX highlighting
-      }
-      return 'typescript'; // No JSX elements, use TypeScript highlighting
-    }
-    
-    const languageMap: { [key: string]: string } = {
-      'js': 'javascript',
-      'mjs': 'javascript',
-      'jsx': 'jsx',
-      'ts': 'typescript',
-      'tsx': 'jsx', // Default for TSX (overridden by logic above)
-      'py': 'python',
-      'pyw': 'python',
-      'java': 'java',
-      'c': 'c',
-      'cpp': 'cpp',
-      'cc': 'cpp',
-      'cxx': 'cpp',
-      'c++': 'cpp',
-      'h': 'c',
-      'hpp': 'cpp',
-      'hxx': 'cpp',
-      'cs': 'csharp',
-      'php': 'php',
-      'php3': 'php',
-      'php4': 'php',
-      'php5': 'php',
-      'phtml': 'php',
-      'rb': 'ruby',
-      'ruby': 'ruby',
-      'go': 'go',
-      'rs': 'rust',
-      'swift': 'swift',
-      'kt': 'kotlin',
-      'kts': 'kotlin',
-      'scala': 'scala',
-      'sc': 'scala',
-      'sh': 'bash',
-      'bash': 'bash',
-      'zsh': 'bash',
-      'fish': 'bash',
-      'ps1': 'powershell',
-      'psm1': 'powershell',
-      'sql': 'sql',
-      'mysql': 'sql',
-      'pgsql': 'sql',
-      'html': 'markup',
-      'htm': 'markup',
-      'xhtml': 'markup',
-      'xml': 'markup',
-      'svg': 'markup',
-      'css': 'css',
-      'scss': 'scss',
-      'sass': 'sass',
-      'less': 'less',
-      'json': 'json',
-      'json5': 'json5',
-      'jsonc': 'json',
-      'yaml': 'yaml',
-      'yml': 'yaml',
-      'toml': 'toml',
-      'ini': 'ini',
-      'cfg': 'ini',
-      'conf': 'nginx',
-      'dockerfile': 'docker',
-      'containerfile': 'docker',
-      'md': 'markdown',
-      'markdown': 'markdown',
-      'mdx': 'mdx',
-      'tex': 'latex',
-      'r': 'r',
-      'rmd': 'r',
-      'matlab': 'matlab',
-      'm': 'objectivec', // Could be Objective-C or MATLAB
-      'mm': 'objectivec',
-      'pl': 'perl',
-      'pm': 'perl',
-      'lua': 'lua',
-      'vim': 'vim',
-      'makefile': 'makefile',
-      'mk': 'makefile',
-      'cmake': 'cmake',
-      'gradle': 'gradle',
-      'groovy': 'groovy',
-      'clj': 'clojure',
-      'cljs': 'clojure',
-      'hs': 'haskell',
-      'elm': 'elm',
-      'dart': 'dart',
-      'vue': 'markup', // Vue files are essentially HTML templates
-      'svelte': 'markup'
-    };
-    
-    return languageMap[ext] || 'javascript'; // Default to JavaScript for better highlighting than 'text'
-  };
+
+
+
 
   const handleUntraceability = async () => {
-    // Only validate git fields if commit generation is enabled
-    if (generateCommitMessages && (!hackathonDate || !hackathonStartTime || !hackathonDuration)) {
-      alert('Please fill in hackathon date, time, and duration for git commit generation');
-      return;
-    }
-    
-    // Ensure git commit generation is selected (since other options are now per-file)
-    if (!generateCommitMessages) {
-      alert('Please enable git commit generation to make the project untraceable');
+    // Validate required fields
+    if (!hackathonDate || !hackathonStartTime || !hackathonDuration) {
+      alert('Please fill in hackathon date, time, and duration');
       return;
     }
 
@@ -332,7 +190,7 @@ export default function ProjectPage() {
     setShowProgressModal(true);
     
     try {
-      const response = await fetch(`http://localhost:8000/api/project/${encodeURIComponent(projectName)}/make-untraceable`, {
+      const response = await fetch(API_ENDPOINTS.PROJECT_UNTRACEABLE(projectName), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -341,7 +199,7 @@ export default function ProjectPage() {
           hackathon_duration: parseInt(hackathonDuration),
           team_members: teamMembers,
           target_repository_url: targetRepositoryUrl,
-          generate_commit_messages: generateCommitMessages
+          generate_commit_messages: true
         })
       });
 
@@ -374,7 +232,7 @@ export default function ProjectPage() {
   const selectFile = async (file: FileNode) => {
     if (file.type === 'file') {
       try {
-        const response = await fetch(`http://localhost:8000/api/project/${encodeURIComponent(projectName)}/file?path=${encodeURIComponent(file.path)}`);
+        const response = await fetch(API_ENDPOINTS.FILE_CONTENT(projectName, file.path));
         if (response.ok) {
           const content = await response.text();
           setSelectedFile({ ...file, content });
@@ -385,58 +243,21 @@ export default function ProjectPage() {
     }
   };
 
-  const getFileIcon = (file: FileNode) => {
-    if (file.type === 'directory') {
-      return expandedFolders.has(file.path) ? (
-        <FolderOpen className="h-4 w-4 text-blue-400" />
-      ) : (
-        <Folder className="h-4 w-4 text-blue-500" />
-      );
-    }
-
-    const extension = file.extension?.toLowerCase() || '';
-    const fileName = file.name.toLowerCase();
-
-    if (fileName.includes('readme')) {
-      return <FileText className="h-4 w-4 text-green-400" />;
-    }
-    
-    if (['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'cpp', 'c', 'go', 'rs', 'php'].includes(extension)) {
-      return <Code2 className="h-4 w-4 text-yellow-400" />;
-    }
-    
-    if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(extension)) {
-      return <ImageIcon className="h-4 w-4 text-purple-400" />;
-    }
-    
-    if (['json', 'yml', 'yaml', 'toml', 'xml'].includes(extension)) {
-      return <Settings className="h-4 w-4 text-orange-400" />;
-    }
-
-    return <File className="h-4 w-4 text-zinc-400" />;
-  };
-
-  const toggleFolder = (folderPath: string) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(folderPath)) {
-      newExpanded.delete(folderPath);
-    } else {
-      newExpanded.add(folderPath);
-    }
-    setExpandedFolders(newExpanded);
+  const handleToggleFolder = (folderPath: string) => {
+    setExpandedFolders(toggleFolder(expandedFolders, folderPath));
   };
 
   const renderFileTree = (files: FileNode[], level = 0) => {
     return files.map((file) => (
       <div key={file.path}>
-        <div 
+        <div
           className={`flex items-center space-x-2 px-2 py-1 hover:bg-zinc-800 rounded cursor-pointer ${
             selectedFile?.path === file.path ? 'bg-zinc-800' : ''
           }`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => {
             if (file.type === 'directory') {
-              toggleFolder(file.path);
+              handleToggleFolder(file.path);
             } else {
               selectFile(file);
             }
@@ -449,13 +270,13 @@ export default function ProjectPage() {
               }`} 
             />
           )}
-          {getFileIcon(file)}
+          {getFileIcon(file, expandedFolders)}
           <span className="text-sm text-zinc-300 truncate">{file.name}</span>
         </div>
         
         {file.type === 'directory' && expandedFolders.has(file.path) && file.children && (
           <div className="ml-4">
-            {renderFileTree(file.children, level + 1)}
+              {renderFileTree(file.children, level + 1)}
           </div>
         )}
       </div>
@@ -514,11 +335,21 @@ export default function ProjectPage() {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Git History Button */}
+            <Button 
+              variant="outline"
+              onClick={() => setShowGitHistory(true)}
+              className="border-green-600 text-green-400 hover:bg-green-600 hover:text-white"
+            >
+              <GitBranch className="h-4 w-4 mr-2" />
+              Git History
+            </Button>
+            
             {/* Untraceable Button */}
             <AlertDialog open={showUntraceabilityModal} onOpenChange={setShowUntraceabilityModal}>
               <AlertDialogTrigger asChild>
                 <Button 
-                  className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 border-0"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 border-0"
                   disabled={untraceabilityLoading}
                 >
                   <Shield className="h-4 w-4 mr-2" />
@@ -536,57 +367,33 @@ export default function ProjectPage() {
                     This will rewrite git history to make your project appear as if it was created during a hackathon timeframe. You can also clone the project to your own repository.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-
+                
                 <div className="py-4 space-y-4">
-                  {/* Options */}
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="generateCommitMessages"
-                        checked={generateCommitMessages}
-                        onChange={(e) => setGenerateCommitMessages(e.target.checked)}
-                        className="rounded border-zinc-600 bg-zinc-800"
-                      />
-                      <label htmlFor="generateCommitMessages" className="text-sm text-zinc-300 flex items-center">
-                        <GitBranch className="h-4 w-4 mr-2" />
-                        Generate AI commit messages and rewrite git history
-                      </label>
-                    </div>
-                    
-                    <div className="text-sm text-zinc-400 bg-zinc-800 p-3 rounded-lg">
-                      <p className="font-medium mb-1">📝 Code Enhancement:</p>
-                      <p>Adding comments and renaming variables is now done per-file. Open any file and use the "Add Comments" or "Rename Variables" buttons.</p>
-                    </div>
-
-                  </div>
-
-                  {/* Git Info and Hackathon Details - Only show if commit generation is enabled */}
-                  {generateCommitMessages && (
-                    <div className="space-y-4 border-t border-zinc-700 pt-4">
+                  {/* Git Info and Hackathon Details */}
+                  <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-zinc-200">Hackathon Timeline</h3>
                       
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-zinc-300 flex items-center">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Hackathon Date
-                          </label>
-                          <Input
-                            type="date"
-                            value={hackathonDate}
-                            onChange={(e) => setHackathonDate(e.target.value)}
-                            className="bg-zinc-800 border-zinc-700 text-white"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-300 flex items-center">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Hackathon Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={hackathonDate}
+                      onChange={(e) => setHackathonDate(e.target.value)}
+                      className="bg-zinc-800 border-zinc-700 text-white"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
                           <label className="text-sm font-medium text-zinc-300">Start Time</label>
-                          <Input
-                            type="time"
-                            value={hackathonStartTime}
-                            onChange={(e) => setHackathonStartTime(e.target.value)}
-                            className="bg-zinc-800 border-zinc-700 text-white"
+                    <Input
+                      type="time"
+                      value={hackathonStartTime}
+                      onChange={(e) => setHackathonStartTime(e.target.value)}
+                      className="bg-zinc-800 border-zinc-700 text-white"
                           />
                         </div>
                       </div>
@@ -601,19 +408,19 @@ export default function ProjectPage() {
                           min="12"
                           max="168"
                           placeholder="48"
-                        />
-                      </div>
+                    />
+                  </div>
 
                       {/* Team Members */}
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium text-zinc-300 flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            Team Members {!generateCommitMessages && "(optional)"}
-                          </label>
+                    <label className="text-sm font-medium text-zinc-300 flex items-center">
+                      <User className="h-4 w-4 mr-2" />
+                            Team Members
+                    </label>
                           <Button
                             type="button"
-                            onClick={addTeamMember}
+                            onClick={handleAddTeamMember}
                             variant="outline"
                             size="sm"
                             className="border-zinc-600 text-zinc-300 hover:bg-zinc-800"
@@ -634,7 +441,7 @@ export default function ProjectPage() {
                               <span className="text-sm font-medium text-zinc-300">Team Member {index + 1}</span>
                               <Button
                                 type="button"
-                                onClick={() => removeTeamMember(index)}
+                                onClick={() => handleRemoveTeamMember(index)}
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-400 hover:bg-red-900/20"
@@ -646,49 +453,48 @@ export default function ProjectPage() {
                               <Input
                                 type="text"
                                 value={member.username}
-                                onChange={(e) => updateTeamMember(index, 'username', e.target.value)}
+                                onChange={(e) => handleUpdateTeamMember(index, 'username', e.target.value)}
                                 className="bg-zinc-900 border-zinc-600 text-white"
                                 placeholder="username"
                               />
                               <Input
                                 type="email"
                                 value={member.email}
-                                onChange={(e) => updateTeamMember(index, 'email', e.target.value)}
+                                onChange={(e) => handleUpdateTeamMember(index, 'email', e.target.value)}
                                 className="bg-zinc-900 border-zinc-600 text-white"
                                 placeholder="email@example.com"
                               />
-                              <Input
-                                type="text"
+                    <Input
+                      type="text"
                                 value={member.name}
-                                onChange={(e) => updateTeamMember(index, 'name', e.target.value)}
+                                onChange={(e) => handleUpdateTeamMember(index, 'name', e.target.value)}
                                 className="bg-zinc-900 border-zinc-600 text-white"
                                 placeholder="Display Name (optional)"
                               />
                             </div>
                           </div>
                         ))}
-                      </div>
-
+                  </div>
+                  
                       {/* Target Repository URL */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-300 flex items-center">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-300 flex items-center">
                           Target Repository URL (optional)
-                        </label>
-                        <Input
+                    </label>
+                    <Input
                           type="url"
                           value={targetRepositoryUrl}
                           onChange={(e) => setTargetRepositoryUrl(e.target.value)}
-                          className="bg-zinc-800 border-zinc-700 text-white"
+                      className="bg-zinc-800 border-zinc-700 text-white"
                           placeholder="https://github.com/username/new-repo.git (optional)"
-                        />
+                    />
                         <p className="text-xs text-zinc-500">
                           If provided, the project will be cloned to this new repository
                         </p>
-                      </div>
+                  </div>
                     </div>
-                  )}
                 </div>
-
+                    
                 <div className="flex justify-end space-x-3 border-t border-zinc-700 pt-4">
                   <AlertDialogAction
                     onClick={() => setShowUntraceabilityModal(false)}
@@ -703,7 +509,7 @@ export default function ProjectPage() {
                   >
                     {untraceabilityLoading ? 'Processing...' : 'Begin Untraceability'}
                   </AlertDialogAction>
-                </div>
+                    </div>
               </AlertDialogContent>
             </AlertDialog>
 
@@ -900,7 +706,7 @@ export default function ProjectPage() {
               <div className="border-b border-zinc-800 bg-zinc-900/20">
                 <div className="flex items-center px-4 py-2">
                   <div className="flex items-center space-x-2 bg-zinc-800/50 rounded px-3 py-1.5">
-                    {getFileIcon(selectedFile)}
+                    {getFileIcon(selectedFile, expandedFolders)}
                     <span className="text-sm font-medium">{selectedFile.name}</span>
                   </div>
                   <div className="ml-auto flex space-x-2">
@@ -999,6 +805,13 @@ export default function ProjectPage() {
           )}
         </div>
       </div>
+      
+      {/* Git History Viewer */}
+      <GitHistoryViewer 
+        projectName={projectName}
+        isVisible={showGitHistory}
+        onClose={() => setShowGitHistory(false)}
+      />
     </div>
   );
 } 

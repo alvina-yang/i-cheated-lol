@@ -349,7 +349,8 @@ export default function ProjectPage() {
             <AlertDialog open={showUntraceabilityModal} onOpenChange={setShowUntraceabilityModal}>
               <AlertDialogTrigger asChild>
                 <Button 
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 border-0"
+                  variant="outline"
+                  className="border-2 border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-400"
                   disabled={untraceabilityLoading}
                 >
                   <Shield className="h-4 w-4 mr-2" />
@@ -504,7 +505,7 @@ export default function ProjectPage() {
                   </AlertDialogAction>
                   <AlertDialogAction
                     onClick={handleUntraceability}
-                    className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700"
+                    className="border-2 border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-400 bg-transparent"
                     disabled={untraceabilityLoading}
                   >
                     {untraceabilityLoading ? 'Processing...' : 'Begin Untraceability'}

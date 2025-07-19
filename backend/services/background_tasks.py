@@ -89,6 +89,18 @@ async def run_untraceable_process(project_name: str, project_path: str, request:
             
             # Use commit agent to create hackathon history (only if date parsing succeeded)
             if git_task:
+                # Convert team members to the expected format
+                team_members_list = []
+                if hasattr(request, 'team_members') and request.team_members:
+                    team_members_list = [
+                        {
+                            "username": member.username,
+                            "email": member.email,
+                            "name": member.name or member.username
+                        }
+                        for member in request.team_members
+                    ]
+                
                 commit_result = agents['commit'].execute({
                     "task_type": "create_history",
                     "project_path": project_path,
@@ -97,6 +109,7 @@ async def run_untraceable_process(project_name: str, project_path: str, request:
                     "technologies": [],  # Will be detected
                     "hackathon_start": hackathon_start,
                     "hackathon_duration": request.hackathon_duration,
+                    "team_members": team_members_list,
                     "developer_name": git_username,
                     "developer_email": git_email
                 })

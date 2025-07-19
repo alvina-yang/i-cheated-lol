@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 import random
 
 from core.base_agent import BaseAgent
-from prompts.commit_prompts import CommitPrompts
 from core.config import Config
+from utils.commit_message_bank import commit_bank
 
 
 class CommitAgent(BaseAgent):
@@ -21,109 +21,66 @@ class CommitAgent(BaseAgent):
     
     def __init__(self):
         super().__init__("CommitAgent")
-        self.commit_prompts = CommitPrompts()
     
     def generate_commit_messages(self, project_name: str, technologies: List[str], 
                                file_changes: str, change_type: str, 
                                hackathon_theme: str = "general") -> List[str]:
         """
-        Generate realistic commit messages for a project.
+        Generate generic commit messages from predefined bank.
         
         Args:
-            project_name: Name of the project
-            technologies: List of technologies used
-            file_changes: Description of files changed
-            change_type: Type of change (feature, fix, docs, etc.)
-            hackathon_theme: Theme of the hackathon
+            project_name: Name of the project (ignored)
+            technologies: List of technologies used (ignored)
+            file_changes: Description of files changed (ignored)
+            change_type: Type of change (ignored)
+            hackathon_theme: Theme of the hackathon (ignored)
             
         Returns:
-            List of generated commit messages
+            List of random generic commit messages
         """
-        try:
-            prompt = self.commit_prompts.get_commit_message_prompt(
-                project_name, technologies, file_changes, change_type, hackathon_theme
-            )
-            
-            response = self.llm.invoke(prompt)
-            
-            # Parse the JSON response
-            commit_messages = json.loads(response.content)
-            
-            if isinstance(commit_messages, list):
-                return commit_messages
-            else:
-                return [response.content]
-                
-        except Exception as e:
-            print(f"⚠️ Error generating commit messages: {e}")
-            # Fallback to hardcoded messages
-            return self._get_fallback_commit_messages(change_type)
+        # Simply return random messages from the bank
+        return [random.choice(commit_bank.messages) for _ in range(random.randint(3, 8))]
     
     def generate_commit_sequence(self, project_name: str, project_description: str,
                                technologies: List[str], commit_count: int,
                                hackathon_duration: int = 48) -> List[str]:
         """
-        Generate a sequence of commit messages for a complete hackathon project.
+        Generate a sequence of generic commit messages for a hackathon project.
         
         Args:
             project_name: Name of the project
-            project_description: Description of the project
-            technologies: List of technologies used
+            project_description: Description of the project (ignored - using generic messages)
+            technologies: List of technologies used (ignored - using generic messages)
             commit_count: Number of commits to generate
             hackathon_duration: Duration of hackathon in hours
             
         Returns:
-            List of commit messages in chronological order
+            List of generic commit messages in chronological order
         """
-        try:
-            prompt = self.commit_prompts.get_commit_sequence_prompt(
-                project_name, project_description, technologies, commit_count, hackathon_duration
-            )
-            
-            response = self.llm.invoke(prompt)
-            
-            # Parse the JSON response
-            commit_sequence = json.loads(response.content)
-            
-            if isinstance(commit_sequence, list):
-                return commit_sequence[:commit_count]  # Ensure we don't exceed requested count
-            else:
-                return [response.content]
-                
-        except Exception as e:
-            print(f"⚠️ Error generating commit sequence: {e}")
-            # Fallback to a basic sequence
-            return self._get_fallback_commit_sequence(commit_count)
+        # Use the generic commit message bank instead of AI-generated descriptive messages
+        return commit_bank.get_hackathon_sequence(commit_count, hackathon_duration)
     
     def generate_commit_description(self, commit_title: str, file_changes: str,
                                   project_context: str) -> str:
         """
-        Generate a detailed commit description.
+        Generate a simple commit description (just return the title).
         
         Args:
             commit_title: Title of the commit
-            file_changes: Description of changed files
-            project_context: Context about the project
+            file_changes: Description of changed files (ignored)
+            project_context: Context about the project (ignored)
             
         Returns:
-            Detailed commit description
+            Simple commit description (same as title)
         """
-        try:
-            prompt = self.commit_prompts.get_commit_description_prompt(
-                commit_title, file_changes, project_context
-            )
-            
-            response = self.llm.invoke(prompt)
-            return response.content.strip()
-            
-        except Exception as e:
-            print(f"⚠️ Error generating commit description: {e}")
-            return f"Updated {file_changes} to improve functionality"
+        # Just return the commit title - no detailed descriptions needed
+        return commit_title
     
     def create_hackathon_commit_history(self, project_path: str, project_name: str,
                                       project_description: str, technologies: List[str],
                                       hackathon_start: datetime, hackathon_duration: int,
-                                      developer_name: str, developer_email: str) -> Dict[str, Any]:
+                                      team_members: List[Dict[str, str]] = None,
+                                      developer_name: str = "", developer_email: str = "") -> Dict[str, Any]:
         """
         Create a complete hackathon commit history for a project.
         
@@ -168,10 +125,24 @@ class CommitAgent(BaseAgent):
             
             # Create new commit history
             status_tracker.add_output_line(f"🔧 Rewriting git history with new timeline...", "git")
-            result = self._rewrite_commit_history(
-                project_path, commit_messages, hackathon_start, hackathon_duration,
-                developer_name, developer_email
-            )
+            
+            # Use team members if provided, otherwise fall back to single developer
+            if team_members and len(team_members) > 0:
+                status_tracker.add_output_line(f"👥 Using {len(team_members)} team members for commit attribution", "git")
+                result = self._rewrite_commit_history_with_team(
+                    project_path, commit_messages, hackathon_start, hackathon_duration, team_members
+                )
+            else:
+                # Fallback to single developer (backward compatibility)
+                if not developer_name:
+                    developer_name = "hackathon-dev"
+                if not developer_email:
+                    developer_email = "dev@hackathon.local"
+                status_tracker.add_output_line(f"👤 Using single developer: {developer_name} <{developer_email}>", "git")
+                result = self._rewrite_commit_history(
+                    project_path, commit_messages, hackathon_start, hackathon_duration,
+                    developer_name, developer_email
+                )
             
             if result:
                 status_tracker.add_output_line(f"✅ Successfully rewrote git history with {len(commit_messages)} commits", "git")
@@ -378,6 +349,261 @@ class CommitAgent(BaseAgent):
             status_tracker.add_output_line(f"❌ Error in git rewriting: {e}", "git")
             return False
     
+    def _rewrite_commit_history_with_team(self, project_path: str, commit_messages: List[str],
+                                         hackathon_start: datetime, hackathon_duration: int,
+                                         team_members: List[Dict[str, str]]) -> bool:
+        """
+        Rewrite git history with new commit messages assigned to random team members.
+        
+        Args:
+            project_path: Path to the project
+            commit_messages: List of commit messages
+            hackathon_start: Start time of hackathon
+            hackathon_duration: Duration in hours
+            team_members: List of team member dictionaries with username, email, name
+            
+        Returns:
+            Success status
+        """
+        try:
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            
+            status_tracker.add_output_line("🔄 Getting commit history...", "git")
+            
+            # Get list of all commits
+            result = subprocess.run(
+                ['git', 'log', '--format=%H', '--reverse'],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            
+            commit_hashes = result.stdout.strip().split('\n')
+            status_tracker.add_output_line(f"📊 Found {len(commit_hashes)} commits to rewrite", "git")
+            
+            # Create time distribution
+            time_distribution = self._create_time_distribution(
+                len(commit_hashes), hackathon_start, hackathon_duration
+            )
+            
+            status_tracker.add_output_line("⏰ Generated hackathon timeline for commits", "git")
+            
+            # Create temporary script for rewriting commits with team members
+            script_content = self._create_team_commit_rewriter_script(
+                commit_hashes, commit_messages, time_distribution, team_members
+            )
+            
+            script_path = os.path.join(project_path, 'team_commit_rewriter.sh')
+            with open(script_path, 'w') as f:
+                f.write(script_content)
+            os.chmod(script_path, 0o755)
+            
+            status_tracker.add_output_line("📝 Created team commit rewriter script", "git")
+            
+            # Run the rewriter script
+            status_tracker.add_output_line("🔄 Running team commit rewriter...", "git")
+            process = subprocess.Popen(
+                ['bash', script_path],
+                cwd=project_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            # Stream output line by line
+            for line in process.stdout:
+                line = line.strip()
+                if line:
+                    status_tracker.add_output_line(line, "git")
+            
+            process.wait()
+            
+            if process.returncode != 0:
+                status_tracker.add_output_line(f"❌ Team commit rewriter failed with exit code {process.returncode}", "git")
+                return False
+            
+            # Clean up
+            try:
+                os.remove(script_path)
+                status_tracker.add_output_line("🧹 Cleaned up temporary files", "git")
+            except:
+                pass
+            
+            # Verify the changes
+            result = subprocess.run(
+                ['git', 'log', '--oneline', '--format=%H %s %an <%ae> %ad', '--date=iso', '-10'],
+                cwd=project_path,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                status_tracker.add_output_line("📋 Recent commits after team rewriting:", "git")
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        status_tracker.add_output_line(f"  {line}", "git")
+            
+            return True
+            
+        except Exception as e:
+            status_tracker.add_output_line(f"❌ Error in team git rewriting: {e}", "git")
+            return False
+    
+    def _create_team_commit_rewriter_script(self, commit_hashes: List[str], commit_messages: List[str],
+                                           time_distribution: List[datetime], team_members: List[Dict[str, str]]) -> str:
+        """Create a bash script to rewrite git history with team members on ALL branches."""
+        script_lines = [
+            '#!/bin/bash',
+            'set -e',
+            '',
+            'echo "Starting comprehensive git history rewriting on ALL branches..."',
+            '',
+            '# Get all branches (local and remote)',
+            'echo "Fetching all branches..."',
+            'git fetch --all 2>/dev/null || echo "No remote to fetch"',
+            '',
+            '# Create backup of current state',
+            'git branch backup-original-$(date +%s) HEAD 2>/dev/null || echo "Backup branch already exists"',
+            '',
+            '# Get all branch names (local and remote)',
+            'ALL_BRANCHES=$(git branch -a | grep -v "backup-original" | sed "s/remotes\\/origin\\///" | sed "s/*//g" | sed "s/ //g" | sort -u | grep -v "^$")',
+            '',
+            'echo "Found branches to rewrite:"',
+            'echo "$ALL_BRANCHES"',
+            '',
+            '# Process each branch',
+            'for BRANCH in $ALL_BRANCHES; do',
+            '    if [[ "$BRANCH" == "HEAD" ]] || [[ "$BRANCH" == *"backup-original"* ]]; then',
+            '        continue',
+            '    fi',
+            '    ',
+            '    echo "Processing branch: $BRANCH"',
+            '    ',
+            '    # Checkout or create the branch',
+            '    git checkout -B "$BRANCH" 2>/dev/null || git checkout "$BRANCH" 2>/dev/null || continue',
+            '    ',
+            '    # Get commits for this branch',
+            '    BRANCH_COMMITS=$(git rev-list --reverse HEAD)',
+            '    COMMIT_COUNT=$(echo "$BRANCH_COMMITS" | wc -l)',
+            '    ',
+            '    if [ "$COMMIT_COUNT" -eq 0 ]; then',
+            '        echo "No commits found in branch $BRANCH, skipping..."',
+            '        continue',
+            '    fi',
+            '    ',
+            '    echo "Rewriting $COMMIT_COUNT commits in branch $BRANCH"',
+            '    ',
+            '    # Reset to first commit of this branch',
+            '    FIRST_COMMIT=$(echo "$BRANCH_COMMITS" | head -1)',
+            '    FIRST_PARENT=$(git rev-list --parents "$FIRST_COMMIT" | head -1 | cut -d" " -f2)',
+            '    ',
+            '    if [ -n "$FIRST_PARENT" ]; then',
+            '        git reset --hard "$FIRST_PARENT"',
+            '    else',
+            '        # Orphan branch, start fresh',
+            '        git checkout --orphan temp-branch-$BRANCH',
+            '        git rm -rf . 2>/dev/null || true',
+            '    fi',
+            '',
+        ]
+        
+        # Add commit processing logic inside the branch loop
+        script_lines.extend([
+            '    # Process commits for this branch',
+            '    COMMIT_INDEX=0',
+            '    for ORIGINAL_COMMIT in $BRANCH_COMMITS; do',
+            '        COMMIT_INDEX=$((COMMIT_INDEX + 1))',
+            '        ',
+            '        # Get a random commit message and team member',
+        ])
+        
+        # Add logic to select random messages and team members
+        script_lines.extend([
+            f'        # Random selection of commit message and team member',
+            f'        MESSAGE_INDEX=$(($RANDOM % {len(commit_messages)}))',
+            f'        TEAM_INDEX=$(($RANDOM % {len(team_members)}))',
+            f'        ',
+        ])
+        
+        # Add all the commit messages as a bash array
+        messages_list = '("' + '" "'.join([msg.replace('"', '\\"') for msg in commit_messages]) + '")'
+        script_lines.append(f'        MESSAGES={messages_list}')
+        script_lines.append(f'        MESSAGE="${{MESSAGES[$MESSAGE_INDEX]}}"')
+        script_lines.append('')
+        
+        # Add all team members as bash arrays
+        usernames = [member.get('username', 'dev') for member in team_members]
+        emails = [member.get('email', 'dev@hackathon.local') for member in team_members]
+        names = [member.get('name', member.get('username', 'dev')) for member in team_members]
+        
+        usernames_list = '("' + '" "'.join(usernames) + '")'
+        emails_list = '("' + '" "'.join(emails) + '")'
+        names_list = '("' + '" "'.join(names) + '")'
+        
+        script_lines.extend([
+            f'        USERNAMES={usernames_list}',
+            f'        EMAILS={emails_list}',
+            f'        NAMES={names_list}',
+            f'        ',
+            f'        USERNAME="${{USERNAMES[$TEAM_INDEX]}}"',
+            f'        EMAIL="${{EMAILS[$TEAM_INDEX]}}"',
+            f'        NAME="${{NAMES[$TEAM_INDEX]}}"',
+            f'        ',
+            f'        # Generate random timestamp within hackathon period',
+            f'        START_TIMESTAMP={int(time_distribution[0].timestamp())}',
+            f'        END_TIMESTAMP={int(time_distribution[-1].timestamp())}',
+            f'        RANDOM_TIMESTAMP=$(($START_TIMESTAMP + ($RANDOM % ($END_TIMESTAMP - $START_TIMESTAMP))))',
+            f'        ',
+            f'        echo "    Commit $COMMIT_INDEX: $MESSAGE (by $NAME)"',
+            f'        ',
+            f'        # Get the changes from the original commit',
+            f'        if [ $COMMIT_INDEX -eq 1 ]; then',
+            f'            # First commit - get all files',
+            f'            git checkout $ORIGINAL_COMMIT -- . 2>/dev/null || true',
+            f'            git add -A',
+            f'        else',
+            f'            # Cherry-pick changes from original commit',
+            f'            git cherry-pick --no-commit $ORIGINAL_COMMIT || {{',
+            f'                # If cherry-pick fails, just copy the files',
+            f'                git checkout $ORIGINAL_COMMIT -- . 2>/dev/null || true',
+            f'                git add -A',
+            f'            }}',
+            f'        fi',
+            f'        ',
+            f'        # Create new commit with random team member',
+            f'        export GIT_AUTHOR_NAME="$NAME"',
+            f'        export GIT_AUTHOR_EMAIL="$EMAIL"',
+            f'        export GIT_COMMITTER_NAME="$NAME"',
+            f'        export GIT_COMMITTER_EMAIL="$EMAIL"',
+            f'        export GIT_AUTHOR_DATE="$RANDOM_TIMESTAMP"',
+            f'        export GIT_COMMITTER_DATE="$RANDOM_TIMESTAMP"',
+            f'        ',
+            f'        git commit -m "$MESSAGE" --allow-empty',
+            f'    done',
+            f'    ',
+            f'    # If we created a temp branch, replace the original',
+            f'    if git show-ref --verify --quiet refs/heads/temp-branch-$BRANCH; then',
+            f'        git branch -D "$BRANCH" 2>/dev/null || true',
+            f'        git branch -m temp-branch-$BRANCH "$BRANCH"',
+            f'    fi',
+            f'    ',
+            f'    echo "Completed rewriting branch: $BRANCH"',
+            f'done',
+            f'',
+            f'echo "All branches rewritten successfully!"',
+            f'echo "Verification of all branches:"',
+            f'git branch --all',
+            f'echo "Sample commits from main/master branch:"',
+            f'git checkout main 2>/dev/null || git checkout master 2>/dev/null || git checkout $(git branch | head -1 | sed "s/*//g" | sed "s/ //g")',
+            f'git log --oneline --format="%h %s %an <%ae>" -5'
+        ])
+        
+        return '\n'.join(script_lines)
+    
     def _create_time_distribution(self, commit_count: int, hackathon_start: datetime,
                                 hackathon_duration: int) -> List[datetime]:
         """Create realistic time distribution for commits during hackathon."""
@@ -487,58 +713,14 @@ class CommitAgent(BaseAgent):
         return '\n'.join(script_lines)
     
     def _get_fallback_commit_messages(self, change_type: str) -> List[str]:
-        """Get fallback commit messages when AI generation fails."""
-        fallback_messages = {
-            "feature": [
-                "feat: add new feature implementation",
-                "feat: implement core functionality",
-                "feat: add user interface components",
-                "feat: integrate API endpoints",
-                "feat: add data processing logic"
-            ],
-            "fix": [
-                "fix: resolve critical bug",
-                "fix: handle edge case scenario",
-                "fix: improve error handling",
-                "fix: optimize performance",
-                "fix: update dependencies"
-            ],
-            "docs": [
-                "docs: update README file",
-                "docs: add code documentation",
-                "docs: improve API documentation",
-                "docs: add usage examples",
-                "docs: update installation guide"
-            ]
-        }
-        
-        return fallback_messages.get(change_type, fallback_messages["feature"])
+        """Get fallback commit messages using generic bank."""
+        # Just return random messages from the bank - ignore change_type
+        return [random.choice(commit_bank.messages) for _ in range(random.randint(3, 8))]
     
     def _get_fallback_commit_sequence(self, commit_count: int) -> List[str]:
-        """Get fallback commit sequence when AI generation fails."""
-        base_sequence = [
-            "Initial project setup and configuration",
-            "Add basic project structure",
-            "Implement core functionality",
-            "Add user interface components",
-            "Integrate API endpoints",
-            "Add data processing logic",
-            "Implement error handling",
-            "Add validation and security",
-            "Optimize performance",
-            "Update documentation",
-            "Final testing and bug fixes",
-            "Polish and cleanup"
-        ]
-        
-        if commit_count <= len(base_sequence):
-            return base_sequence[:commit_count]
-        else:
-            # Extend with generic messages
-            extended = base_sequence[:]
-            for i in range(commit_count - len(base_sequence)):
-                extended.append(f"Additional improvements and fixes #{i + 1}")
-            return extended
+        """Get fallback commit sequence using generic message bank."""
+        # Use the generic commit message bank for fallback as well
+        return [random.choice(commit_bank.messages) for _ in range(commit_count)]
     
     def execute(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -582,6 +764,7 @@ class CommitAgent(BaseAgent):
                 task_data.get("technologies", []),
                 task_data.get("hackathon_start"),
                 task_data.get("hackathon_duration", 48),
+                task_data.get("team_members", []),
                 task_data.get("developer_name", ""),
                 task_data.get("developer_email", "")
             )

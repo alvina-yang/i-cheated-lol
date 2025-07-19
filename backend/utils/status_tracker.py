@@ -190,15 +190,12 @@ class StatusTracker:
         self.operation_start_time = None
     
     def add_output_line(self, line: str, source: str = "system"):
-        """Add a line of output to the display."""
+        """Add a line of output (simplified - no terminal streaming)."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_line = f"[{timestamp}] [{source}] {line}"
         
-        self.output_lines.append(formatted_line)
-        
-        # Keep only the last max_output_lines
-        if len(self.output_lines) > self.max_output_lines:
-            self.output_lines = self.output_lines[-self.max_output_lines:]
+        # Just log to console instead of storing for streaming
+        print(formatted_line)
         
         self._notify_callbacks("output_added", {"line": formatted_line, "source": source})
     

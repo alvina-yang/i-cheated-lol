@@ -68,5 +68,5 @@ async def stream_status():
 
 @router.get("/terminal/stream")
 async def stream_terminal():
-    """Disabled terminal streaming to avoid issues"""
-    return {"message": "Terminal streaming disabled"} 
+    """Terminal streaming completely removed to avoid issues"""
+    return {"message": "Terminal streaming has been disabled", "success": True} 

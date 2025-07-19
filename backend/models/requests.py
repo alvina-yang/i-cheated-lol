@@ -6,6 +6,13 @@ from typing import List, Dict, Union
 from pydantic import BaseModel
 
 
+class TeamMember(BaseModel):
+    """Team member information for multi-developer projects"""
+    username: str
+    email: str
+    name: str = ""  # Optional display name
+
+
 class TechnologySearchRequest(BaseModel):
     technologies: List[str] = []
 
@@ -20,10 +27,20 @@ class EnhancedUntraceabilityRequest(BaseModel):
     hackathon_date: str = ""  # YYYY-MM-DD format - optional, only needed for git rewriting
     hackathon_start_time: str = ""  # HH:MM format - optional, only needed for git rewriting
     hackathon_duration: int = 48  # Duration in hours - optional, only needed for git rewriting
-    git_username: str = ""  # Optional - only needed for git rewriting
-    git_email: str = ""  # Optional - only needed for git rewriting
+    team_members: List[TeamMember] = []  # List of team members
     target_repository_url: str = ""
     generate_commit_messages: bool = False  # Default to False so users opt-in
+    
+    # Backward compatibility properties
+    @property
+    def git_username(self) -> str:
+        """Get primary team member username for backward compatibility"""
+        return self.team_members[0].username if self.team_members else ""
+    
+    @property
+    def git_email(self) -> str:
+        """Get primary team member email for backward compatibility"""
+        return self.team_members[0].email if self.team_members else ""
 
 
 class SettingsUpdateRequest(BaseModel):

@@ -40,8 +40,6 @@ async def make_project_untraceable(project_name: str, request: EnhancedUntraceab
         
         # Update processing settings
         EnhancedConfig.update_processing_settings(
-            add_comments=request.add_comments,
-            add_documentation=request.add_documentation,
             modify_commit_messages=request.generate_commit_messages
         )
         

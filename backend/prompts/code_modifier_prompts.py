@@ -28,18 +28,17 @@ SOURCE CODE:
 ```
 
 Add comments that:
-1. Explain complex logic or algorithms (every 3-5 lines where it makes sense)
+1. Explain only the most complex logic or algorithms
 2. Describe the purpose of functions/classes at the beginning
-3. Clarify non-obvious code sections
-4. Add brief explanations for important variables or calculations
-5. Sound natural and helpful from a developer's perspective
+4. Sound natural and helpful from a developer's perspective
 
 Comment Guidelines:
 - Use appropriate comment syntax for {language}
-- Add comments every couple of lines where it makes sense
-- Keep comments concise but informative
-- Focus on WHY and HOW rather than obvious WHAT
-- Add comments strategically, focusing on complex or important sections
+- Add comments SPARINGLY - only every 4-6 lines where truly needed
+- Keep comments brief and to the point
+- Focus on WHY and HOW for complex sections only
+- Skip obvious code - only comment what needs explanation
+- Prioritize quality over quantity - fewer, better comments
 - Use professional, clear language
 
 RESPONSE FORMAT:

@@ -168,65 +168,7 @@ async def get_file_changes(project_name: str):
         raise HTTPException(status_code=500, detail=f"Error getting file changes: {str(e)}")
 
 
-@router.get("/project/{project_name}/monitor-changes")
-async def monitor_file_changes(project_name: str):
-    """Monitor file changes in real-time"""
-    async def generate():
-        from app import agents  # Import agents from main app
-        status_tracker = get_global_tracker()
-        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
-        
-        if not os.path.exists(project_path):
-            yield f"data: {json.dumps({'error': 'Project not found'})}\n\n"
-            return
-        
-        # Start file monitoring
-        def change_callback(changed_files):
-            data = {
-                "project_name": project_name,
-                "changed_files": changed_files,
-                "timestamp": datetime.now().isoformat()
-            }
-            # Note: This would need to be handled differently in a real async context
-            # For now, we'll just log it
-            status_tracker.add_output_line(f"File changes detected: {len(changed_files)} files", "filesystem")
-        
-        monitor_result = agents['git'].execute({
-            "task_type": "monitor_changes",
-            "project_path": project_path,
-            "change_callback": change_callback
-        })
-        
-        if not monitor_result["success"]:
-            yield f"data: {json.dumps({'error': monitor_result['message']})}\n\n"
-            return
-        
-        # Stream file changes
-        last_check = datetime.now()
-        
-        while True:
-            try:
-                # Get recent file system output
-                recent_output = status_tracker.get_recent_output(10)
-                fs_output = [line for line in recent_output if "filesystem" in line]
-                
-                if fs_output:
-                    data = {
-                        "project_name": project_name,
-                        "monitoring_active": True,
-                        "recent_changes": fs_output,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                    
-                    yield f"data: {json.dumps(data)}\n\n"
-                
-                await asyncio.sleep(2)  # Check every 2 seconds
-                
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                break
-    
-    return StreamingResponse(generate(), media_type="text/plain")
+
 
 
 @router.get("/project/{project_name}/files")

@@ -57,12 +57,12 @@ export const stripMarkdownWrapper = (content: string): string => {
 export const getSyntaxLanguage = (extension: string, content?: string): string => {
   const ext = extension.toLowerCase().replace('.', '');
   
-  // Special handling for TSX files - detect if it contains JSX elements
   if (ext === 'tsx') {
-    if (content && JSX_ELEMENT_PATTERN.test(content)) {
-      return 'jsx'; // Contains JSX elements, use JSX highlighting
-    }
-    return 'typescript'; // No JSX elements, use TypeScript highlighting
+    return 'typescript';
+  }
+  
+  if (ext === 'jsx') {
+    return 'javascript';
   }
   
   return LANGUAGE_MAP[ext] || DEFAULT_LANGUAGE;

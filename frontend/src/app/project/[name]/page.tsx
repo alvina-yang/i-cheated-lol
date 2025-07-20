@@ -77,6 +77,7 @@ export default function ProjectPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fileContentLoading, setFileContentLoading] = useState(false);
   
   // Untraceability modal state
   const [showUntraceabilityModal, setShowUntraceabilityModal] = useState(false);
@@ -387,14 +388,25 @@ export default function ProjectPage() {
   // Other utility functions remain the same...
   const selectFile = async (file: FileNode) => {
     if (file.type === 'file') {
+      if (selectedFile?.path === file.path) return;
+
+      setFileContentLoading(true);
+      setSelectedFile({ ...file, content: undefined });
+
       try {
         const response = await fetch(API_ENDPOINTS.FILE_CONTENT(projectName, file.path));
+        const content = await response.text();
+        
         if (response.ok) {
-          const content = await response.text();
           setSelectedFile({ ...file, content });
+        } else {
+          setSelectedFile({ ...file, content: `Error: Failed to load file. Status: ${response.status}\n\n${content}` });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load file content:', err);
+        setSelectedFile({ ...file, content: `Error: Could not load file.\n\n${err.message}` });
+      } finally {
+        setFileContentLoading(false);
       }
     }
   };
@@ -920,8 +932,16 @@ export default function ProjectPage() {
 
               {/* File Content */}
               <div className="flex-1 overflow-hidden">
-                {selectedFile.content ? (
+                {fileContentLoading ? (
+                  <div className="h-full flex items-center justify-center text-zinc-500">
+                    <div className="text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                      <p>Loading {selectedFile.name}...</p>
+                    </div>
+                  </div>
+                ) : selectedFile.content !== undefined ? (
                   <EditableCodeEditor
+                    key={selectedFile.path}
                     value={stripMarkdownWrapper(selectedFile.content)}
                     language={getSyntaxLanguage(selectedFile.extension || '', selectedFile.content)}
                     fileName={selectedFile.name}

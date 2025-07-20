@@ -15,6 +15,9 @@ class CommonFileRetrieval(BaseAgent):
         # Initialize file analysis prompts
         self.file_analysis_prompts = FileAnalysisPrompts()
         
+        # Initialize summary generator to None
+        self.summary_generator = None
+        
         self.supported_extensions = {
             # Programming languages
             '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.h', '.hpp',
@@ -37,6 +40,11 @@ class CommonFileRetrieval(BaseAgent):
             '.sql', '.sqlite', '.db'
         }
     
+    def set_summary_generator(self, summary_generator_func: Callable[[str, str], str]):
+        """Set the summary generator function."""
+        self.summary_generator = summary_generator_func
+        self.log("Summary generator function set successfully")
+
     def execute(self, *args, **kwargs):
         """Required by BaseAgent interface - not used in this context."""
         pass
@@ -166,6 +174,46 @@ class CommonFileRetrieval(BaseAgent):
         except Exception as e:
             self.log(f"Error reading file {relative_path}: {str(e)}", "ERROR")
             return f"Error reading file: {str(e)}"
+
+    def _generate_simple_summary(self, relative_path: str, content: str) -> str:
+        """Generate a simple fallback summary when no summary generator is provided."""
+        try:
+            ext = os.path.splitext(relative_path)[1].lower()
+            lines = content.split('\n')
+            line_count = len(lines)
+            char_count = len(content)
+            
+            # Get file type description
+            if ext in ['.py']:
+                file_type = "Python script"
+            elif ext in ['.js', '.ts']:
+                file_type = "JavaScript/TypeScript file"
+            elif ext in ['.html']:
+                file_type = "HTML document"
+            elif ext in ['.css', '.scss']:
+                file_type = "Stylesheet"
+            elif ext in ['.json']:
+                file_type = "JSON configuration"
+            elif ext in ['.md']:
+                file_type = "Markdown document"
+            else:
+                file_type = f"{ext.upper().lstrip('.')} file" if ext else "Text file"
+            
+            # Create basic summary
+            summary = f"{file_type} with {line_count} lines and {char_count} characters."
+            
+            # Add some basic content analysis
+            if 'class ' in content:
+                summary += " Contains class definitions."
+            if 'function ' in content or 'def ' in content:
+                summary += " Contains function definitions."
+            if 'import ' in content:
+                summary += " Contains import statements."
+                
+            return summary
+            
+        except Exception as e:
+            return f"Simple summary generation failed: {str(e)}"
 
     def _generate_file_summary(self, relative_path: str, content: str) -> str:
         """Generate a summary of the file using LLM."""

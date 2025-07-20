@@ -21,12 +21,14 @@ import {
   GitBranch,
   Shield,
   Calendar,
-  Clock,
   User,
   MessageCircle,
   Variable,
   Loader2,
-  Presentation
+  Presentation,
+  Lightbulb,
+  X,
+  Check
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import dynamic from 'next/dynamic';
@@ -108,6 +110,19 @@ export default function ProjectPage() {
   const [showPanicResultModal, setShowPanicResultModal] = useState(false);
   const [panicResult, setPanicResult] = useState<any>(null);
   
+  // Feature suggestion state
+  const [showFeatureSuggestions, setShowFeatureSuggestions] = useState(false);
+  const [featureSuggestionsLoading, setFeatureSuggestionsLoading] = useState(false);
+  const [featureSuggestions, setFeatureSuggestions] = useState<any[]>([]);
+  const [featureSuggestionsError, setFeatureSuggestionsError] = useState<string | null>(null);
+  const [featureSuggestionsLoaded, setFeatureSuggestionsLoaded] = useState(false);
+  const [generatingFeature, setGeneratingFeature] = useState<string | null>(null);
+  const [implementedFeatures, setImplementedFeatures] = useState<Set<string>>(new Set());
+  
+  // Win chances state
+  const [initialWinChances] = useState(() => Math.floor(Math.random() * 11) + 70); // 70-80
+  const [currentWinChances, setCurrentWinChances] = useState<number | undefined>(undefined);
+  
   // Removed all streaming functions
 
   // Team member management handlers
@@ -176,6 +191,141 @@ export default function ProjectPage() {
       alert(`Panic mode failed: ${error.message}`);
     } finally {
       setPanicLoading(false);
+    }
+  };
+
+  // Load feature suggestions from backend JSON file
+  const loadFeatureSuggestionsFromJson = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/feature-suggestion/features`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.latest_suggestions && data.latest_suggestions.suggestions) {
+          setFeatureSuggestions(data.latest_suggestions.suggestions);
+          setFeatureSuggestionsLoaded(true);
+          setShowFeatureSuggestions(true);
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to load suggestions from JSON:', error);
+      return false;
+    }
+  };
+
+  // Handle feature click to generate code
+  const handleFeatureClick = async (feature: any) => {
+    setGeneratingFeature(feature.title);
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/code-generation/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feature_description: `${feature.title}: ${feature.description}`,
+          project_path: `/Users/isaacpicov/HackathonProject/${projectName}`,
+          target_files: [],
+          max_files: 5
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate code');
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.generated_files) {
+        // Write generated files to the editor
+        const files = Object.entries(data.generated_files);
+        if (files.length > 0) {
+          const [fileName, fileContent] = files[0] as [string, string];
+          
+          // Clean up file path for display
+          const cleanFileName = fileName.startsWith('/') ? fileName.substring(1) : fileName;
+          
+          // Create a mock file object for the editor
+          const generatedFile = {
+            name: cleanFileName.split('/').pop() || cleanFileName,
+            path: cleanFileName,
+            type: 'file' as const,
+            content: fileContent
+          };
+          
+          setSelectedFile(generatedFile);
+          
+          // Add to editor history for undo functionality (like other AI edits)
+          if (editorRef && editorRef.addToHistory) {
+            editorRef.addToHistory(fileContent, 'ai-edit', `Generated: ${feature.title}`);
+          }
+          
+          // Mark feature as implemented
+          setImplementedFeatures(prev => new Set([...prev, feature.title]));
+          
+          // Update win chances by 5-7%
+          const increaseAmount = Math.floor(Math.random() * 3) + 5; // 5-7%
+          const newWinChances = Math.min(100, (currentWinChances || initialWinChances) + increaseAmount);
+          setCurrentWinChances(newWinChances);
+          console.log(`Win chances increased by ${increaseAmount}% to ${newWinChances}%`);
+          
+          // Show success message
+          alert(`✅ Generated code for "${feature.title}"! Check the editor to see the changes. Win chances increased by ${increaseAmount}%!`);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating code for feature:', error);
+      alert('Failed to generate code for this feature');
+    } finally {
+      setGeneratingFeature(null);
+    }
+  };
+
+  // Modified feature suggestion handler
+  const handleFeatureSuggestion = async () => {
+    // If suggestions are already loaded, just toggle the sidebar
+    if (featureSuggestionsLoaded) {
+      setShowFeatureSuggestions(!showFeatureSuggestions);
+      return;
+    }
+
+    // Try to load from JSON first
+    const loadedFromJson = await loadFeatureSuggestionsFromJson();
+    if (loadedFromJson) {
+      return;
+    }
+
+    // If not in JSON, call the API
+    setFeatureSuggestionsLoading(true);
+    setFeatureSuggestionsError(null);
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/feature-suggestion/suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_path: `/Users/isaacpicov/HackathonProject/${projectName}`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get feature suggestions: ${response.status} - ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.suggestions) {
+        setFeatureSuggestions(data.suggestions);
+        setFeatureSuggestionsLoaded(true);
+        setShowFeatureSuggestions(true);
+      } else {
+        throw new Error(data.message || 'Failed to get feature suggestions');
+      }
+    } catch (err: any) {
+      console.error('Error getting feature suggestions:', err);
+      setFeatureSuggestionsError(err.message || 'Failed to get feature suggestions');
+      setShowFeatureSuggestions(true);
+    } finally {
+      setFeatureSuggestionsLoading(false);
     }
   };
 
@@ -504,6 +654,24 @@ export default function ProjectPage() {
           
           <div className="flex items-center space-x-3">
             
+            {/* Suggest Changes Button */}
+            <Button 
+              variant="outline"
+              onClick={handleFeatureSuggestion}
+              disabled={featureSuggestionsLoading}
+              className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+            >
+              {featureSuggestionsLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Lightbulb className="h-4 w-4 mr-2" />
+              )}
+              {featureSuggestionsLoading ? 'Analyzing...' : 
+               featureSuggestionsLoaded ? 
+                 (showFeatureSuggestions ? 'Hide Suggestions' : 'Show Suggestions') : 
+                 'Suggest Changes'}
+            </Button>
+            
             {/* Presentation Script Button */}
             <Button 
               variant="outline"
@@ -567,34 +735,6 @@ export default function ProjectPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-300 flex items-center">
-                      <Clock className="h-4 w-4 mr-2" />
-                      Start Time
-                    </label>
-                    <TimePicker
-                      value={hackathonStartTime}
-                      onChange={setHackathonStartTime}
-                      placeholder="Select start time"
-                    />
-                  </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-300">Duration (hours)</label>
-                        <Input
-                          type="number"
-                          value={hackathonDuration}
-                          onChange={(e) => setHackathonDuration(e.target.value)}
-                          className="bg-zinc-800 border-zinc-700 text-white"
-                          min="12"
-                          max="168"
-                          placeholder="48"
-                    />
-                  </div>
-
-                      {/* Team Members */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-zinc-300 flex items-center">
                       <User className="h-4 w-4 mr-2" />
                             Team Members
@@ -867,8 +1007,11 @@ export default function ProjectPage() {
             </div>
             
             {/* Winning Chances Bar */}
-            <div className="px-2">
-              <WinningChancesBar />
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 mb-6">
+              <WinningChancesBar 
+                initialPercentage={initialWinChances}
+                currentPercentage={currentWinChances}
+              />
             </div>
           </div>
         </div>
@@ -1070,6 +1213,100 @@ export default function ProjectPage() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Feature Suggestions Sidebar */}
+      {showFeatureSuggestions && (
+        <div className="fixed inset-0 z-50 flex">
+          <div 
+            className="flex-1 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowFeatureSuggestions(false)}
+          />
+          <div className="w-96 bg-zinc-900 border-l border-zinc-700 h-full overflow-y-auto">
+            <div className="p-4 border-b border-zinc-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Feature Suggestions</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFeatureSuggestions(false)}
+                className="text-zinc-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              {featureSuggestionsError ? (
+                <div className="bg-red-900/20 border border-red-600 rounded-lg p-4">
+                  <div className="text-red-400 font-medium mb-2">Error</div>
+                  <div className="text-red-300 text-sm">{featureSuggestionsError}</div>
+                </div>
+              ) : featureSuggestions.length > 0 ? (
+                featureSuggestions.map((suggestion, index) => (
+                  <div key={index} className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-medium text-white">{suggestion.title}</h4>
+                      <div className="flex items-center space-x-2">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            suggestion.priority === 'High' ? 'border-red-500 text-red-400' :
+                            suggestion.priority === 'Medium' ? 'border-yellow-500 text-yellow-400' :
+                            'border-green-500 text-green-400'
+                          }`}
+                        >
+                          {suggestion.priority}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs border-green-500 text-green-400"
+                        >
+                          Easy
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <p className="text-zinc-300 text-sm mb-3">{suggestion.description}</p>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick(suggestion)}
+                      disabled={generatingFeature !== null || implementedFeatures.has(suggestion.title)}
+                      className={`w-full ${
+                        implementedFeatures.has(suggestion.title)
+                          ? 'border-green-600 text-green-400 bg-green-600/10'
+                          : 'border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white'
+                      }`}
+                    >
+                      {implementedFeatures.has(suggestion.title) ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Already Implemented
+                        </>
+                      ) : generatingFeature === suggestion.title ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Code2 className="h-4 w-4 mr-2" />
+                          Generate Code
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-zinc-400 py-8">
+                  <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No feature suggestions available</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

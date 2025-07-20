@@ -4,7 +4,6 @@ from typing import Dict, Any
 from pathlib import Path
 
 from core.base_agent import BaseAgent
-from langchain_openai import ChatOpenAI
 import prompts.feature_suggestion as prompts
 
 
@@ -15,11 +14,8 @@ class LLMResponseHandler:
     def extract_json(response) -> Dict[str, Any]:
         """Extract JSON from various response formats"""
         try:
-            # Handle ChatOpenAI response
-            if hasattr(response, 'content'):
-                content = response.content
-            else:
-                content = str(response)
+            # Handle string response
+            content = str(response)
             
             # Try direct JSON parse
             try:
@@ -46,7 +42,6 @@ class LLMResponseHandler:
 class SuggestFeatureAgent(BaseAgent):
     def __init__(self):
         super().__init__("SuggestFeatureAgent")
-        self.llm = ChatOpenAI(model="gpt-4o-mini")
         
     def execute(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the suggest feature agent."""
@@ -57,17 +52,13 @@ class SuggestFeatureAgent(BaseAgent):
                 "error": "Missing required parameter: project_path"
             }
         
-        return asyncio.run(self.suggest_feature(project_path))
-    
-    async def suggest_feature(self, project_path: str) -> Dict[str, Any]:
-        """Suggest a feature for the project."""
         try:
             backend_dir = Path(__file__).parent.parent
             summary_file = backend_dir / "file_summary.json"
             
             if not summary_file.exists():
                 return {"error": "file_summary.json not found"}
-            
+
             with open(summary_file) as f:
                 file_summaries = json.load(f)
             
@@ -75,10 +66,27 @@ class SuggestFeatureAgent(BaseAgent):
             project_data = next(iter(file_summaries.values()))
             summaries = project_data.get("file_summaries", {})
             
-            prompt = prompts.FeatureSuggestionPrompts.get_feature_suggestion_prompt(json.dumps(summaries))
-            response = self.llm.invoke(prompt)
+            # Get the prompt messages and convert to string format
+            prompt_messages = prompts.FeatureSuggestionPrompts.get_feature_suggestion_prompt(json.dumps(summaries))
             
-            return LLMResponseHandler.extract_json(response)
+            # Convert messages to string format for unified LLM wrapper
+            prompt_text = ""
+            for message in prompt_messages:
+                if hasattr(message, 'content'):
+                    content = str(message.content)
+                    prompt_text += content + "\n\n"
+                else:
+                    prompt_text += str(message) + "\n\n"
+            
+            # Use the unified LLM wrapper's invoke_llm method
+            response = self.invoke_llm(prompt_text.strip(), parse_json=True)
+            
+            # If JSON parsing failed, try manual extraction
+            if response is None:
+                response = self.invoke_llm(prompt_text.strip(), parse_json=False)
+                return LLMResponseHandler.extract_json(response)
+            
+            return response
             
         except Exception as e:
             return {"error": f"Feature suggestion failed: {str(e)}"}

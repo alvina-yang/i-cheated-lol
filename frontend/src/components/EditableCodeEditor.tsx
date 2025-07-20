@@ -404,7 +404,12 @@ export default function EditableCodeEditor({
             cursorBlinking: 'blink',
             cursorSmoothCaretAnimation: "on",
             smoothScrolling: true,
-            mouseWheelZoom: true
+            mouseWheelZoom: true,
+            // Disable error markers and red underlines
+            'semanticHighlighting.enabled': false,
+            'occurrencesHighlight': false,
+            'renderValidationDecorations': 'off',
+            'hideCursorInOverviewRuler': true
           }}
         />
       </div>

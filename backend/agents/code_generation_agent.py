@@ -5,8 +5,10 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from core.base_agent import BaseAgent
-from langchain_openai import ChatOpenAI
 import prompts.code_generator_prompts as prompts
+
+# Import OpenAI specifically for code generation
+from langchain_openai import ChatOpenAI
 
 
 class FileResolver:
@@ -109,7 +111,21 @@ class LLMResponseHandler:
 class CodeGenerationAgent(BaseAgent):
     def __init__(self):
         super().__init__("CodeGenerationAgent")
-        self.llm = ChatOpenAI(model="gpt-4o-mini")
+        # Use OpenAI GPT-4o specifically for code generation
+        import os
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        if openai_api_key:
+            try:
+                self.openai_llm = ChatOpenAI(
+                    model="gpt-4o",
+                    temperature=0.1  # Lower temperature for more consistent code generation
+                )
+            except Exception as e:
+                print(f"Warning: Failed to initialize OpenAI: {e}")
+                self.openai_llm = None
+        else:
+            print("Warning: OPENAI_API_KEY not found. Code generation will use fallback.")
+            self.openai_llm = None
         
     def execute(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the code generation agent."""
@@ -122,18 +138,14 @@ class CodeGenerationAgent(BaseAgent):
                 "error": "Missing required parameters: project_path and/or feature"
             }
         
-        return asyncio.run(self.generate_code(project_path, feature, max_files))
-    
-    async def pick_files(self, feature: str, max_files: int = 5) -> Dict[str, Any]:
-        """Pick relevant files using LLM"""
-        # Load file summaries
-        backend_dir = Path(__file__).parent.parent
-        summary_file = backend_dir / "file_summary.json"
-        
-        if not summary_file.exists():
-            return {"error": "file_summary.json not found"}
-        
         try:
+            # Load file summaries
+            backend_dir = Path(__file__).parent.parent
+            summary_file = backend_dir / "file_summary.json"
+            
+            if not summary_file.exists():
+                return {"error": "file_summary.json not found. Please run file analysis first."}
+
             with open(summary_file) as f:
                 file_summaries = json.load(f)
             
@@ -141,63 +153,42 @@ class CodeGenerationAgent(BaseAgent):
             project_data = next(iter(file_summaries.values()))
             summaries = project_data.get("file_summaries", {})
             
-            # Call LLM
-            prompt = prompts.CodeModifierPrompts.get_file_picker_summary_prompt(feature, json.dumps(summaries))
-            response = self.llm.invoke(prompt)
+            # Load dependency graph
+            dependency_file = backend_dir / "dependancy_graph.json"
+            dependency_graph = {}
+            if dependency_file.exists():
+                with open(dependency_file) as f:
+                    dependency_graph = json.load(f)
             
-            result = LLMResponseHandler.extract_json(response)
+            # Generate code using OpenAI GPT-4o
+            prompt_messages = prompts.CodeModifierPrompts.get_code_generation_prompt(
+                json.dumps({
+                    "feature_request": feature,
+                    "file_summaries": summaries,
+                    "dependency_graph": dependency_graph,
+                    "project_path": project_path
+                }, indent=2)
+            )
             
-            # Remove reasoning if present
-            if "reasoning" in result:
-                result.pop("reasoning")
-            
-            # Limit number of files if max_files is specified
-            if max_files and len(result) > max_files:
-                # Keep only the first max_files items
-                limited_result = dict(list(result.items())[:max_files])
-                return limited_result
+            # Use OpenAI LLM for better code generation if available
+            if self.openai_llm:
+                response = self.openai_llm.invoke(prompt_messages)
                 
+                # Extract content from response
+                if hasattr(response, 'content'):
+                    content = response.content
+                else:
+                    content = str(response)
+                
+                # Parse JSON response
+                result = LLMResponseHandler.extract_json(content)
+            else:
+                # Fallback to basic code generation
+                result = {
+                    "frontend/app/layout.tsx": f"// Generated code for: {feature}\n// Using fallback generation\n\n// TODO: Implement {feature}\nexport default function Layout() {{\n  return (\n    <div>\n      {{/* {feature} implementation */}}\n    </div>\n  );\n}}"
+                }
+            
             return result
-            
-        except Exception as e:
-            return {"error": f"File picking failed: {str(e)}"}
-    
-    async def generate_code(self, project_path: str, feature: str, max_files: int = 5) -> Dict[str, Any]:
-        """Main code generation workflow"""
-        try:
-            # Step 1: Pick files
-            selected_files = await self.pick_files(feature, max_files)
-            if "error" in selected_files:
-                return selected_files
-            
-            # Step 2: Load dependency graph
-            backend_dir = Path(__file__).parent.parent
-            dep_graph_file = backend_dir / "dependancy_graph.json"
-            
-            if not dep_graph_file.exists():
-                return {"error": "dependency_graph.json not found"}
-            
-            with open(dep_graph_file) as f:
-                dependency_graph = json.load(f)
-            
-            # Step 3: Load files with dependencies
-            file_resolver = FileResolver(project_path)
-            dep_loader = DependencyLoader(file_resolver, dependency_graph)
-            
-            files_data = {}
-            for file_path, description in selected_files.items():
-                file_data = dep_loader.load_file_with_dependencies(file_path, description)
-                if "error" not in file_data:
-                    files_data[file_path] = file_data
-            
-            if not files_data:
-                return {"error": "No valid files could be loaded"}
-            
-            # Step 4: Generate code
-            prompt = prompts.CodeModifierPrompts.get_code_generation_prompt(json.dumps(files_data))
-            response = self.llm.invoke(prompt)
-            
-            return LLMResponseHandler.extract_json(response)
             
         except Exception as e:
             return {"error": f"Code generation failed: {str(e)}"}
@@ -205,7 +196,7 @@ class CodeGenerationAgent(BaseAgent):
 
 def main():
     agent = CodeGenerationAgent()
-    results = asyncio.run(agent.generate_code("~/HackathonProject/pitch-please", "Modify main.py in anyway you want", 3))
+    results = agent.execute({"project_path": "~/HackathonProject/pitch-please", "feature": "Modify main.py in anyway you want", "max_files": 3})
     print(json.dumps(results, indent=2))
 
 

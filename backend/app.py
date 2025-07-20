@@ -26,6 +26,8 @@ from agents.git_agent import GitAgent
 from agents.presentation_agent import PresentationAgent
 from agents.file_analysis_agent import FileAnalysisAgent
 from agents.dependancy_graph_builder import DependancyGraphBuilder
+from agents.suggest_feature_agent import SuggestFeatureAgent
+from agents.code_generation_agent import CodeGenerationAgent
 from utils.project_cloner import GitHubCloner
 from utils.status_tracker import StatusTracker, get_global_tracker, initialize_status_tracking
 
@@ -77,6 +79,8 @@ async def lifespan(app: FastAPI):
             'presentation': PresentationAgent(),
             'file_analysis': FileAnalysisAgent(),
             'dependency_graph': DependancyGraphBuilder(),
+            'suggest_feature': SuggestFeatureAgent(),
+            'code_generation': CodeGenerationAgent(),
             'cloner': GitHubCloner()
         }
         

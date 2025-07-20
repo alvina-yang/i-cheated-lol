@@ -1,29 +1,28 @@
 # Core Dependencies
-langchain>=0.3.0
-langchain-core>=0.3.0
-langchain-community>=0.3.0
-langsmith>=0.4.0
-langchain-openai>=0.2.0  # Commented out for Groq
-langchain-text-splitters>=0.3.0
+langchain>=0.3.0,<0.4.0
+langchain-core>=0.3.0,<0.4.0
+langchain-community>=0.3.0,<0.4.0
+langchain-openai>=0.2.0,<0.3.0
+langchain-text-splitters>=0.3.0,<0.4.0
+langchain-ollama>=0.3.0,<0.4.0
+langsmith>=0.4.0,<0.5.0
 groq>=0.30.0
-langchain-ollama>=0.3.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0
 gitpython==3.1.40
 aiohttp==3.9.1
 tqdm==4.66.1
-lxml==4.9.3 
-groq
+lxml==4.9.3
 
-# FastAPI Dependencies
+# FastAPI Dependencies  
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic>=2.7.4,<3.0.0
 python-multipart==0.0.6
 
 # CORS for frontend communication
-fastapi-cors==0.0.6 
+fastapi-cors==0.0.6
 
 # Additional streaming dependencies
 sse-starlette==1.8.2 

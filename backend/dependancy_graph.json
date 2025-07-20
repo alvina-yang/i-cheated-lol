@@ -1,0 +1,199 @@
+{
+  "/tailwind.config.js": [],
+  "/postcss.config.mjs": [],
+  "/next.config.mjs": [
+    "/v0-user-next.config.mjs"
+  ],
+  "/README.md": [],
+  "/flatiron_building_.mp3": [],
+  "/package-lock.json": [],
+  "/package.json": [],
+  "/components.json": [
+    "/tailwind.config.ts",
+    "/app/globals.css",
+    "/lib/utils.ts",
+    "/components/ui",
+    "/lib"
+  ],
+  "/tsconfig.json": [],
+  "/types/global.d.ts": [],
+  "/app/layout.tsx": [
+    "/app/globals.css"
+  ],
+  "/app/page.tsx": [
+    "/components/ui/input.tsx",
+    "/components/ui/button.tsx",
+    "/components/ui/card.tsx",
+    "/components/ui/separator.tsx"
+  ],
+  "/app/globals.css": [],
+  "/styles/globals.css": [],
+  "/components/theme-provider.tsx": [],
+  "/components/ui/aspect-ratio.tsx": [],
+  "/components/ui/alert-dialog.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/button.ts"
+  ],
+  "/components/ui/use-mobile.tsx": [],
+  "/components/ui/pagination.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/button.ts"
+  ],
+  "/components/ui/tabs.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/card.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/slider.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/popover.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/progress.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/toaster.tsx": [
+    "/hooks/use-toast.ts",
+    "/components/ui/toast.ts"
+  ],
+  "/components/ui/input-otp.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/chart.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/hover-card.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/sheet.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/scroll-area.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/resizable.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/label.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/sonner.tsx": [],
+  "/components/ui/navigation-menu.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/accordion.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/drawer.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/tooltip.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/alert.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/use-toast.ts": [
+    "/components/ui/toast.ts"
+  ],
+  "/components/ui/switch.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/calendar.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/button.ts"
+  ],
+  "/components/ui/breadcrumb.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/radio-group.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/command.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/dialog.tsx"
+  ],
+  "/components/ui/toggle-group.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/toggle.ts"
+  ],
+  "/components/ui/avatar.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/menubar.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/dialog.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/badge.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/sidebar.tsx": [
+    "/hooks/use-mobile.ts",
+    "/lib/utils.ts",
+    "/components/ui/button.tsx",
+    "/components/ui/input.tsx",
+    "/components/ui/separator.tsx",
+    "/components/ui/sheet.tsx",
+    "/components/ui/skeleton.tsx",
+    "/components/ui/tooltip.tsx"
+  ],
+  "/components/ui/table.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/separator.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/button.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/toggle.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/toast.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/checkbox.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/collapsible.tsx": [],
+  "/components/ui/dropdown-menu.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/select.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/textarea.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/input.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/skeleton.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/context-menu.tsx": [
+    "/lib/utils.ts"
+  ],
+  "/components/ui/form.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/label.tsx"
+  ],
+  "/components/ui/carousel.tsx": [
+    "/lib/utils.ts",
+    "/components/ui/button.tsx"
+  ],
+  "/public/placeholder-logo.svg": [],
+  "/public/placeholder-logo.png": [],
+  "/public/placeholder-user.jpg": [],
+  "/public/placeholder.jpg": [],
+  "/public/placeholder.svg": [],
+  "/hooks/use-mobile.tsx": [],
+  "/hooks/use-toast.ts": [
+    "/components/ui/toast.ts"
+  ],
+  "/lib/utils.ts": []
+}

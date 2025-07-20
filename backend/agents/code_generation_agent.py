@@ -31,8 +31,40 @@ class CodeGenerationAgent(BaseAgent):
         else:
             return {"error": "File summary not found"}
     
-    def get_files(self, task_data: str) -> Dict[str, Any]:
+    def get_files(self, chosen_files: Dict[str, Any]) -> Dict[str, Any]:
         """Get the files that are most relevant to the feature to create."""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, "dependancy_graph.json")
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                dependancy_graph = json.load(f)
+        else:
+            return {"error": "Dependancy graph not found"}
+        
+        # chosen_files ={file_name: summary}
+        #dependancy_graph = {file_name: [dependancy_file_name]}
+        #input_json = {'language': 'python',
+        #    'description': 'This is the description of the file to modify',
+        #    'code': 'code',
+        #    'dependancies': [
+        #        'dependancy_1.ext',
+        #        'dependancy_2.ext',
+        #        'dependancy_n.ext'
+        #    ]}
+        
+        input_json = {}
+        for file_name, summary in chosen_files.items():
+            if file_name in dependancy_graph:
+                with open()
+                input_json[file_name] = {
+                    'language': file_name.split('.')[-1],
+                    'description': summary,
+                    'code': '',
+                    'dependancies': dependancy_graph[file_name]
+                }
+        return input_json
+                    
+       
     
     async def generate_code(self, task_data: str) -> Dict[str, Any]:
         input_json = await self.pick_files(task_data)

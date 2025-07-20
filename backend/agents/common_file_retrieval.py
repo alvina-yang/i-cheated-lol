@@ -3,8 +3,18 @@ import asyncio
 from typing import Dict, List, Callable, Optional
 from concurrent.futures import ThreadPoolExecutor
 
-class CommonFileRetrieval:
-    def __init__(self, summary_generator: Optional[Callable[[str, str], str]] = None):
+# Import necessary components for LLM-based file analysis
+from core.base_agent import BaseAgent
+from prompts.file_analysis_prompts import FileAnalysisPrompts
+
+class CommonFileRetrieval(BaseAgent):
+    def __init__(self):
+        # Initialize as BaseAgent first
+        super().__init__("CommonFileRetrieval")
+        
+        # Initialize file analysis prompts
+        self.file_analysis_prompts = FileAnalysisPrompts()
+        
         self.supported_extensions = {
             # Programming languages
             '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.h', '.hpp',
@@ -26,20 +36,15 @@ class CommonFileRetrieval:
             # Database and SQL
             '.sql', '.sqlite', '.db'
         }
-        
-        # Initialize logging
-        self.log = print  # Default logging function
-        
-        # Set the summary generator function
-        self.summary_generator = summary_generator
+    
+    def execute(self, *args, **kwargs):
+        """Required by BaseAgent interface - not used in this context."""
+        pass
     
     def set_logging(self, log_func: Callable[[str], None]):
         """Set the logging function."""
-        self.log = log_func
-    
-    def set_summary_generator(self, summary_generator: Callable[[str, str], str]):
-        """Set the summary generator function."""
-        self.summary_generator = summary_generator
+        # Override the inherited log method if needed
+        pass
     
     def _get_analyzable_files(self, project_path: str) -> List[str]:
         """Get list of files that should be analyzed."""
@@ -161,29 +166,29 @@ class CommonFileRetrieval:
         except Exception as e:
             self.log(f"Error reading file {relative_path}: {str(e)}", "ERROR")
             return f"Error reading file: {str(e)}"
-    
-    def _generate_simple_summary(self, file_path: str, content: str) -> str:
-        """Generate a simple fallback summary without using LLM."""
-        ext = os.path.splitext(file_path)[1].lower()
-        lines = content.split('\n')
-        
-        summary_parts = []
-        summary_parts.append(f"File: {file_path}")
-        summary_parts.append(f"Type: {ext or 'unknown'}")
-        summary_parts.append(f"Lines: {len(lines)}")
-        
-        # Basic content analysis
-        if ext in ['.py', '.js', '.ts', '.jsx', '.tsx']:
-            # Look for imports, classes, functions
-            imports = [line.strip() for line in lines if line.strip().startswith(('import ', 'from '))]
-            classes = [line.strip() for line in lines if 'class ' in line]
-            functions = [line.strip() for line in lines if 'def ' in line or 'function ' in line]
+
+    def _generate_file_summary(self, relative_path: str, content: str) -> str:
+        """Generate a summary of the file using LLM."""
+        try:
+            # Get file extension for context
+            ext = os.path.splitext(relative_path)[1].lower()
             
-            if imports:
-                summary_parts.append(f"Imports: {len(imports)}")
-            if classes:
-                summary_parts.append(f"Classes: {len(classes)}")
-            if functions:
-                summary_parts.append(f"Functions: {len(functions)}")
-        
-        return " | ".join(summary_parts)
+            # Create prompt with system context
+            system_prompt = self.file_analysis_prompts.get_system_prompt()
+            user_prompt = self.file_analysis_prompts.get_file_summary_prompt(
+                file_path=relative_path,
+                file_extension=ext,
+                content=content
+            )
+            
+            # Combine system and user prompts for LangChain
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            
+            # Call LLM using the inherited invoke method
+            response = self.invoke_llm(full_prompt)
+            
+            return response.strip() if response else f"Unable to generate summary for {relative_path}"
+            
+        except Exception as e:
+            self.log(f"Error generating summary for {relative_path}: {str(e)}", "ERROR")
+            return f"Unable to generate summary: {str(e)}"

@@ -29,10 +29,27 @@ import {
   Presentation
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import dynamic from 'next/dynamic';
 import GitHistoryViewer from "@/components/GitHistoryViewer";
 import EditableCodeEditor from "@/components/EditableCodeEditor";
+
+// Dynamic import for syntax highlighter to avoid SSR issues
+const SyntaxHighlighter = dynamic(() => 
+  import('react-syntax-highlighter').then(mod => mod.Prism), 
+  { 
+    ssr: false,
+    loading: () => <div className="p-4 bg-zinc-800 rounded text-zinc-400">Loading syntax highlighter...</div>
+  }
+);
+
+// Dynamic import for the theme
+const getSyntaxTheme = () => {
+  try {
+    return require('react-syntax-highlighter/dist/esm/styles/prism').vscDarkPlus;
+  } catch {
+    return {};
+  }
+};
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { FileNode, ProjectData, TeamMember, DiffData } from "./types";
@@ -46,6 +63,7 @@ import {
   toggleFolder
 } from "./utils";
 import { API_ENDPOINTS } from "./constants/api";
+import { WinningChancesBar } from "@/components/WinningChancesBar";
 
 export default function ProjectPage() {
   const params = useParams();
@@ -59,6 +77,7 @@ export default function ProjectPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fileContentLoading, setFileContentLoading] = useState(false);
   
   // Untraceability modal state
   const [showUntraceabilityModal, setShowUntraceabilityModal] = useState(false);
@@ -369,14 +388,25 @@ export default function ProjectPage() {
   // Other utility functions remain the same...
   const selectFile = async (file: FileNode) => {
     if (file.type === 'file') {
+      if (selectedFile?.path === file.path) return;
+
+      setFileContentLoading(true);
+      setSelectedFile({ ...file, content: undefined });
+
       try {
         const response = await fetch(API_ENDPOINTS.FILE_CONTENT(projectName, file.path));
+        const content = await response.text();
+        
         if (response.ok) {
-          const content = await response.text();
           setSelectedFile({ ...file, content });
+        } else {
+          setSelectedFile({ ...file, content: `Error: Failed to load file. Status: ${response.status}\n\n${content}` });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load file content:', err);
+        setSelectedFile({ ...file, content: `Error: Could not load file.\n\n${err.message}` });
+      } finally {
+        setFileContentLoading(false);
       }
     }
   };
@@ -738,7 +768,7 @@ export default function ProjectPage() {
                           <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
                             <SyntaxHighlighter
                               language={getSyntaxLanguage(diffData.fileName?.split('.').pop() || '', diffData.originalContent)}
-                              style={vscDarkPlus}
+                              style={getSyntaxTheme()}
                               customStyle={{
                                 margin: 0,
                                 padding: '1rem',
@@ -766,7 +796,7 @@ export default function ProjectPage() {
                           <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
                             <SyntaxHighlighter
                               language={getSyntaxLanguage(diffData.fileName?.split('.').pop() || '', diffData.modifiedContent)}
-                              style={vscDarkPlus}
+                              style={getSyntaxTheme()}
                               customStyle={{
                                 margin: 0,
                                 padding: '1rem',
@@ -829,11 +859,16 @@ export default function ProjectPage() {
           </div>
           
           <div className="flex-1 overflow-y-auto p-2">
-            <div className="mb-2">
+            <div className="mb-4">
               <div className="text-xs text-zinc-500 uppercase tracking-wide px-2 mb-2">
                 {project.name}
               </div>
               {renderFileTree(project.files)}
+            </div>
+            
+            {/* Winning Chances Bar */}
+            <div className="px-2">
+              <WinningChancesBar />
             </div>
           </div>
         </div>
@@ -897,8 +932,16 @@ export default function ProjectPage() {
 
               {/* File Content */}
               <div className="flex-1 overflow-hidden">
-                {selectedFile.content ? (
+                {fileContentLoading ? (
+                  <div className="h-full flex items-center justify-center text-zinc-500">
+                    <div className="text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                      <p>Loading {selectedFile.name}...</p>
+                    </div>
+                  </div>
+                ) : selectedFile.content !== undefined ? (
                   <EditableCodeEditor
+                    key={selectedFile.path}
                     value={stripMarkdownWrapper(selectedFile.content)}
                     language={getSyntaxLanguage(selectedFile.extension || '', selectedFile.content)}
                     fileName={selectedFile.name}

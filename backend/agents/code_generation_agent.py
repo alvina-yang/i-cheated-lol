@@ -114,17 +114,17 @@ class CodeGenerationAgent(BaseAgent):
     def execute(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the code generation agent."""
         project_path = task_data.get("project_path")
-        feature = task_data.get("feature")
+        feature = task_data.get("feature") or task_data.get("feature_description")
+        max_files = task_data.get("max_files", 5)
         
         if not project_path or not feature:
             return {
-                "success": False,
-                "message": "Missing required parameters: project_path and/or feature"
+                "error": "Missing required parameters: project_path and/or feature"
             }
         
-        return asyncio.run(self.generate_code(project_path, feature))
+        return asyncio.run(self.generate_code(project_path, feature, max_files))
     
-    async def pick_files(self, feature: str) -> Dict[str, Any]:
+    async def pick_files(self, feature: str, max_files: int = 5) -> Dict[str, Any]:
         """Pick relevant files using LLM"""
         # Load file summaries
         backend_dir = Path(__file__).parent.parent
@@ -150,17 +150,23 @@ class CodeGenerationAgent(BaseAgent):
             # Remove reasoning if present
             if "reasoning" in result:
                 result.pop("reasoning")
+            
+            # Limit number of files if max_files is specified
+            if max_files and len(result) > max_files:
+                # Keep only the first max_files items
+                limited_result = dict(list(result.items())[:max_files])
+                return limited_result
                 
             return result
             
         except Exception as e:
             return {"error": f"File picking failed: {str(e)}"}
     
-    async def generate_code(self, project_path: str, feature: str) -> Dict[str, Any]:
+    async def generate_code(self, project_path: str, feature: str, max_files: int = 5) -> Dict[str, Any]:
         """Main code generation workflow"""
         try:
             # Step 1: Pick files
-            selected_files = await self.pick_files(feature)
+            selected_files = await self.pick_files(feature, max_files)
             if "error" in selected_files:
                 return selected_files
             
@@ -199,7 +205,7 @@ class CodeGenerationAgent(BaseAgent):
 
 def main():
     agent = CodeGenerationAgent()
-    results = asyncio.run(agent.generate_code("~/HackathonProject/pitch-please", "Modify main.py in anyway you want"))
+    results = asyncio.run(agent.generate_code("~/HackathonProject/pitch-please", "Modify main.py in anyway you want", 3))
     print(json.dumps(results, indent=2))
 
 

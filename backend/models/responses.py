@@ -66,3 +66,21 @@ class CodeGenerationResponse(BaseModel):
     message: str
     generated_files: Optional[Dict[str, str]] = None
     error_details: Optional[str] = None
+
+
+class FeatureSuggestion(BaseModel):
+    title: str
+    description: str
+    priority: str
+    difficulty: str
+    estimated_time: str
+    rationale: str
+
+
+class FeatureSuggestionResponse(BaseModel):
+    success: bool
+    message: str
+    suggestions: Optional[List[FeatureSuggestion]] = None
+    project_analysis: Optional[str] = None
+    priority_recommendations: Optional[List[str]] = None
+    error_details: Optional[str] = None

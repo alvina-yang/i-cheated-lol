@@ -36,7 +36,9 @@ from routes import (
     untraceable_router,
     status_router,
     settings_router,
-    project_router
+    project_router,
+    code_generation_router,
+    feature_suggestion_router
 )
 from routes.file_operations import router as file_operations_router
 from routes.git import router as git_router
@@ -114,6 +116,8 @@ app.include_router(untraceable_router)
 app.include_router(status_router)
 app.include_router(settings_router)
 app.include_router(project_router)
+app.include_router(code_generation_router)
+app.include_router(feature_suggestion_router)
 app.include_router(file_operations_router)
 app.include_router(git_router)
 app.include_router(dependency_router)

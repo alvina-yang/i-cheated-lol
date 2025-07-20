@@ -56,3 +56,7 @@ class CodeGenerationRequest(BaseModel):
     project_path: str
     feature_description: str
     max_files: int = 5  # Limit number of files to modify
+
+
+class FeatureSuggestionRequest(BaseModel):
+    project_path: str

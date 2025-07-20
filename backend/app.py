@@ -25,6 +25,7 @@ from agents.variable_renaming_agent import VariableRenamingAgent
 from agents.git_agent import GitAgent
 from agents.presentation_agent import PresentationAgent
 from agents.file_analysis_agent import FileAnalysisAgent
+from agents.dependancy_graph_builder import DependancyGraphBuilder
 from utils.project_cloner import GitHubCloner
 from utils.status_tracker import StatusTracker, get_global_tracker, initialize_status_tracking
 
@@ -39,6 +40,7 @@ from routes import (
 )
 from routes.file_operations import router as file_operations_router
 from routes.git import router as git_router
+from routes.dependency import router as dependency_router
 
 # Global instances
 agents = {}
@@ -71,6 +73,7 @@ async def lifespan(app: FastAPI):
             'git': GitAgent(),
             'presentation': PresentationAgent(),
             'file_analysis': FileAnalysisAgent(),
+            'dependency_graph': DependancyGraphBuilder(),
             'cloner': GitHubCloner()
         }
         
@@ -112,6 +115,7 @@ app.include_router(settings_router)
 app.include_router(project_router)
 app.include_router(file_operations_router)
 app.include_router(git_router)
+app.include_router(dependency_router)
 
 
 @app.get("/")

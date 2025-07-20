@@ -480,23 +480,6 @@ export default function ProjectPage() {
               Git History
             </Button>
             
-            {/* PANIC Button */}
-            <Button 
-              variant="outline"
-              onClick={handlePanicMode}
-              disabled={panicLoading}
-              className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white animate-pulse"
-            >
-              {panicLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  PANIC MODE...
-                </>
-              ) : (
-                '🚨 PANIC'
-              )}
-            </Button>
-            
             {/* Untraceable Button */}
             <AlertDialog open={showUntraceabilityModal} onOpenChange={setShowUntraceabilityModal}>
               <AlertDialogTrigger asChild>
@@ -667,6 +650,23 @@ export default function ProjectPage() {
               </AlertDialogContent>
             </AlertDialog>
 
+            {/* PANIC Button */}
+            <Button 
+              variant="outline"
+              onClick={handlePanicMode}
+              disabled={panicLoading}
+              className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white animate-pulse"
+            >
+              {panicLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  PANIC MODE...
+                </>
+              ) : (
+                '🚨 PANIC'
+              )}
+            </Button>
+
             {/* Progress Modal - Simple Loading */}
             <AlertDialog open={showProgressModal} onOpenChange={setShowProgressModal}>
               <AlertDialogContent className="bg-zinc-900 border-zinc-700">
@@ -802,16 +802,6 @@ export default function ProjectPage() {
                 </div>
               </AlertDialogContent>
             </AlertDialog>
-            
-            <Badge className="bg-zinc-800 text-zinc-300">
-              {project.language}
-            </Badge>
-            <Badge className="bg-blue-600/20 text-blue-300 border-blue-700">
-              ⭐ {project.stars}
-            </Badge>
-            <Badge className="bg-purple-600/20 text-purple-300 border-purple-700">
-              🍴 {project.forks}
-            </Badge>
           </div>
         </div>
       </div>

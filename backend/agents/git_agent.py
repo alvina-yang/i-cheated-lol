@@ -244,7 +244,7 @@ class GitAgent(BaseAgent):
             response = self.llm.invoke(prompt)
             
             try:
-                setup_instructions = json.loads(response.content)
+                setup_instructions = json.loads(response)
             except json.JSONDecodeError:
                 # Fallback to manual setup
                 setup_instructions = self._generate_fallback_setup(original_url, target_url)

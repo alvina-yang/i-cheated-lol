@@ -21,7 +21,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 interface HistoryEntry {
   content: string;
   timestamp: number;
-  operation: 'manual_edit' | 'save' | 'add_comments' | 'rename_variables' | 'untraceable_changes';
+  operation: 'manual_edit' | 'save' | 'add_comments' | 'rename_variables' | 'refactor_file' | 'untraceable_changes';
   description: string;
 }
 

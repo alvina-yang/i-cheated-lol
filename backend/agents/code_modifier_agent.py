@@ -76,7 +76,7 @@ class CodeModifierAgent(BaseAgent):
             response = self.llm.invoke(prompt)
             
             # Parse the JSON response
-            analysis = json.loads(response.content)
+            analysis = json.loads(response)
             
             analysis.update({
                 "success": True,
@@ -134,7 +134,7 @@ class CodeModifierAgent(BaseAgent):
             )
             
             response = self.llm.invoke(prompt)
-            modified_content = response.content.strip()
+            modified_content = response.strip()
             
             # Validate that the modified content is actually different
             if modified_content == original_content:
@@ -387,7 +387,7 @@ class CodeModifierAgent(BaseAgent):
             )
             
             response = self.llm.invoke(prompt)
-            modified_content = response.content.strip()
+            modified_content = response.strip()
             
             # Validate that the modified content is actually different
             if modified_content == original_content:
@@ -425,6 +425,90 @@ class CodeModifierAgent(BaseAgent):
             return {
                 "success": False,
                 "message": f"Failed to add documentation: {str(e)}",
+                "file_path": file_path
+            }
+    
+    def refactor_file(self, file_path: str) -> Dict[str, Any]:
+        """
+        Refactor and reorder a source code file to make it better without changing logic.
+        
+        Args:
+            file_path: Path to the source code file
+            
+        Returns:
+            Dictionary with modification results
+        """
+        try:
+            # Read original file
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                original_content = f.read()
+            
+            # Get file info
+            file_extension = Path(file_path).suffix.lower()
+            language = self.supported_extensions.get(file_extension, 'unknown')
+            filename = os.path.basename(file_path)
+            
+            if language == 'unknown':
+                return {
+                    "success": False,
+                    "message": f"Unsupported file type: {file_extension}"
+                }
+            
+            # Skip very small files
+            if len(original_content.strip()) < 30:
+                return {
+                    "success": False,
+                    "message": "File too small for refactoring"
+                }
+            
+            # Generate refactoring prompt
+            prompt = self.code_modifier_prompts.get_refactor_prompt(
+                language, filename, original_content
+            )
+            
+            response = self.llm.invoke(prompt)
+            modified_content = response.strip()
+            
+            # Validate that the modified content is actually different
+            if modified_content == original_content:
+                return {
+                    "success": False,
+                    "message": "No refactoring improvements were made to the file"
+                }
+            
+            # Create backup
+            backup_path = file_path + '.refactor_backup'
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                f.write(original_content)
+            
+            # Write modified content
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(modified_content)
+            
+            # Calculate metrics
+            original_lines = len(original_content.splitlines())
+            modified_lines = len(modified_content.splitlines())
+            refactorings_count = 1  # Simple count - could be enhanced to detect specific improvements
+            
+            from utils.status_tracker import get_global_tracker
+            status_tracker = get_global_tracker()
+            status_tracker.add_output_line(f"🔧 Refactored {filename} with code improvements", "code")
+            
+            return {
+                "success": True,
+                "message": f"Refactored {filename}",
+                "file_path": file_path,
+                "backup_path": backup_path,
+                "original_lines": original_lines,
+                "modified_lines": modified_lines,
+                "refactorings_count": refactorings_count
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Error refactoring {file_path}: {e}")
+            return {
+                "success": False,
+                "message": f"Failed to refactor file: {str(e)}",
                 "file_path": file_path
             }
     
@@ -584,6 +668,9 @@ class CodeModifierAgent(BaseAgent):
         
         elif task_type == "add_documentation":
             return self.add_documentation_to_file(task_data.get("file_path", ""))
+        
+        elif task_type == "refactor_file":
+            return self.refactor_file(task_data.get("file_path", ""))
         
         elif task_type == "modify_project":
             return self.modify_project_files(

@@ -161,15 +161,22 @@ export default function ProjectPage() {
   };
 
   // File operation handlers
-  const handleFileOperation = async (operation: 'add-comments' | 'rename-variables') => {
+  const handleFileOperation = async (operation: 'add-comments' | 'rename-variables' | 'make-better') => {
     if (!selectedFile) return;
     
     setFileOperationLoading(operation);
     
     try {
-      const operationEndpoint = operation === 'add-comments' 
-        ? API_ENDPOINTS.FILE_OPERATIONS.ADD_COMMENTS 
-        : API_ENDPOINTS.FILE_OPERATIONS.RENAME_VARIABLES;
+      let operationEndpoint: string;
+      if (operation === 'add-comments') {
+        operationEndpoint = API_ENDPOINTS.FILE_OPERATIONS.ADD_COMMENTS;
+      } else if (operation === 'rename-variables') {
+        operationEndpoint = API_ENDPOINTS.FILE_OPERATIONS.RENAME_VARIABLES;
+      } else if (operation === 'make-better') {
+        operationEndpoint = API_ENDPOINTS.FILE_OPERATIONS.MAKE_BETTER;
+      } else {
+        throw new Error(`Unknown operation: ${operation}`);
+      }
       
       const response = await fetch(operationEndpoint, {
         method: 'POST',
@@ -209,10 +216,17 @@ export default function ProjectPage() {
         
         // Update the editor with the new content and add to history
         if (editorRef) {
-          const operationName = operation === 'add-comments' ? 'add_comments' : 'rename_variables';
-          const description = operation === 'add-comments' 
-            ? `Added ${result.lines_added} comment lines` 
-            : `Renamed ${result.variables_changed} variables`;
+          let operationName, description;
+          if (operation === 'add-comments') {
+            operationName = 'add_comments';
+            description = `Added ${result.lines_added} comment lines`;
+          } else if (operation === 'rename-variables') {
+            operationName = 'rename_variables';
+            description = `Renamed ${result.variables_changed} variables`;
+          } else if (operation === 'make-better') {
+            operationName = 'refactor_file';
+            description = `Applied ${result.variables_changed || 'code'} refactoring improvements`;
+          }
           editorRef.updateContent(newContent, operationName, description);
         }
         
@@ -718,18 +732,6 @@ export default function ProjectPage() {
                 <div className="py-4 max-h-[70vh] overflow-y-auto">
                   {diffData && (
                     <div className="space-y-4">
-                      <div className="bg-zinc-800 p-4 rounded-lg">
-                        <h4 className="text-sm font-medium text-zinc-300 mb-2">Changes Summary:</h4>
-                        <div className="flex space-x-4 text-sm">
-                          {diffData.linesAdded > 0 && (
-                            <span className="text-green-400">+{diffData.linesAdded} lines added</span>
-                          )}
-                          {diffData.variablesChanged > 0 && (
-                            <span className="text-blue-400">{diffData.variablesChanged} variables renamed</span>
-                          )}
-                        </div>
-                      </div>
-                      
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div>
                           <h4 className="text-sm font-medium text-zinc-300 mb-2">Before:</h4>
@@ -868,6 +870,16 @@ export default function ProjectPage() {
                     >
                       <Variable className="h-3 w-3 mr-1" />
                       {fileOperationLoading === 'rename-variables' ? 'Processing...' : 'Rename Variables'}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 bg-green-600/20 text-green-300 hover:bg-green-600/30 border border-green-700"
+                      onClick={() => handleFileOperation('make-better')}
+                      disabled={fileOperationLoading !== null}
+                    >
+                      <Code2 className="h-3 w-3 mr-1" />
+                      {fileOperationLoading === 'make-better' ? 'Processing...' : 'Make Better'}
                     </Button>
                     
                     {/* Standard file operations */}

@@ -14,12 +14,12 @@ class Config:
     """Central configuration management for the Chameleon system."""
     
     # API Configuration
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Uncommented for OpenAI
-    # GROQ_API_KEY = os.getenv('GROQ_API_KEY')  # Commented out for OpenAI
+    # OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Commented out for Groq
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY')  # Uncommented for Groq
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     
     # LLM Configuration
-    LLM_MODEL = os.getenv('LLM_MODEL', 'gpt-4o-mini')  # Default OpenAI model
+    LLM_MODEL = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')  # Default Groq model
     LLM_TEMPERATURE = float(os.getenv('LLM_TEMPERATURE', '0.3'))
     
     # Search Configuration
@@ -45,10 +45,10 @@ class Config:
     @classmethod
     def validate(cls):
         """Validate that required configuration is present."""
-        if not cls.OPENAI_API_KEY:  # Uncommented for OpenAI
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        # if not cls.GROQ_API_KEY:  # Commented out for OpenAI
-        #     raise ValueError("GROQ_API_KEY environment variable is required")
+        # if not cls.OPENAI_API_KEY:  # Commented out for Groq
+        #     raise ValueError("OPENAI_API_KEY environment variable is required")
+        if not cls.GROQ_API_KEY:  # Uncommented for Groq
+            raise ValueError("GROQ_API_KEY environment variable is required")
         
         # Create clone directory if it doesn't exist
         os.makedirs(cls.CLONE_DIRECTORY, exist_ok=True)

@@ -23,6 +23,8 @@ class FileAnalysisAgent(BaseAgent):
         super().__init__("FileAnalysisAgent")
         self.file_analysis_prompts = FileAnalysisPrompts()
         self.common_file_retrieval = CommonFileRetrieval()
+        # Set the summary generator after initialization
+        self.common_file_retrieval.set_summary_generator(self._generate_file_summary)
         # Override model for faster file analysis
         self.analysis_model = "llama-3.1-8b-instant"  # Use instant model for file analysis
         self.supported_extensions = {

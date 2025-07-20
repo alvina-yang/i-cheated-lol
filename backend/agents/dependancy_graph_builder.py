@@ -202,16 +202,15 @@ class DependancyGraphBuilder(BaseAgent):
             visualization += "\n"
         
         return visualization
-    
+
     def save_dependency_graph(self, project_path: str, dependancy_graph: Dict[str, List[str]]) -> str:
         """Save the dependency graph to a JSON file."""
         try:
-            # Create .chameleon directory if it doesn't exist
-            chameleon_dir = os.path.join(project_path, ".chameleon")
-            os.makedirs(chameleon_dir, exist_ok=True)
+            # Get the backend directory (parent of agents directory)
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             
-            # Save dependency graph
-            graph_file = os.path.join(chameleon_dir, "dependency_graph.json")
+            # Save dependency graph to backend/dependancy_graph.json
+            graph_file = os.path.join(backend_dir, "dependancy_graph.json")
             with open(graph_file, 'w', encoding='utf-8') as f:
                 json.dump(dependancy_graph, f, indent=2)
             

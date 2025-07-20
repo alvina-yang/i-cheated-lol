@@ -1,10 +1,10 @@
 import os
 import asyncio
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 class CommonFileRetrieval:
-    def __init__(self):
+    def __init__(self, summary_generator: Optional[Callable[[str, str], str]] = None):
         self.supported_extensions = {
             # Programming languages
             '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.h', '.hpp',
@@ -29,10 +29,17 @@ class CommonFileRetrieval:
         
         # Initialize logging
         self.log = print  # Default logging function
+        
+        # Set the summary generator function
+        self.summary_generator = summary_generator
     
     def set_logging(self, log_func: Callable[[str], None]):
         """Set the logging function."""
         self.log = log_func
+    
+    def set_summary_generator(self, summary_generator: Callable[[str, str], str]):
+        """Set the summary generator function."""
+        self.summary_generator = summary_generator
     
     def _get_analyzable_files(self, project_path: str) -> List[str]:
         """Get list of files that should be analyzed."""
@@ -142,11 +149,41 @@ class CommonFileRetrieval:
                 # Take first part and last part to capture both structure and conclusion
                 content = content[:max_content_length//2] + "\n...\n" + content[-max_content_length//2:]
             
-            # Generate summary using LLM
-            summary = self._generate_file_summary(relative_path, content)
+            # Generate summary using the provided summary generator function
+            if self.summary_generator:
+                summary = self.summary_generator(relative_path, content)
+            else:
+                # Fallback to a simple summary if no generator is provided
+                summary = self._generate_simple_summary(relative_path, content)
             
             return summary
             
         except Exception as e:
             self.log(f"Error reading file {relative_path}: {str(e)}", "ERROR")
             return f"Error reading file: {str(e)}"
+    
+    def _generate_simple_summary(self, file_path: str, content: str) -> str:
+        """Generate a simple fallback summary without using LLM."""
+        ext = os.path.splitext(file_path)[1].lower()
+        lines = content.split('\n')
+        
+        summary_parts = []
+        summary_parts.append(f"File: {file_path}")
+        summary_parts.append(f"Type: {ext or 'unknown'}")
+        summary_parts.append(f"Lines: {len(lines)}")
+        
+        # Basic content analysis
+        if ext in ['.py', '.js', '.ts', '.jsx', '.tsx']:
+            # Look for imports, classes, functions
+            imports = [line.strip() for line in lines if line.strip().startswith(('import ', 'from '))]
+            classes = [line.strip() for line in lines if 'class ' in line]
+            functions = [line.strip() for line in lines if 'def ' in line or 'function ' in line]
+            
+            if imports:
+                summary_parts.append(f"Imports: {len(imports)}")
+            if classes:
+                summary_parts.append(f"Classes: {len(classes)}")
+            if functions:
+                summary_parts.append(f"Functions: {len(functions)}")
+        
+        return " | ".join(summary_parts)

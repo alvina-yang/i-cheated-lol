@@ -83,14 +83,14 @@ async def get_saved_dependency_graph(project_name: str):
     """Get a previously saved dependency graph for a project"""
     try:
         # Build project path
-        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        project_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
         # Validate project exists
         if not os.path.exists(project_path):
             raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
         
         # Check for saved dependency graph
-        graph_file = os.path.join(project_path, ".chameleon", "dependency_graph.json")
+        graph_file = os.path.join(project_path, "dependency_graph.json")
         if not os.path.exists(graph_file):
             return DependencyAnalysisResponse(
                 success=False,

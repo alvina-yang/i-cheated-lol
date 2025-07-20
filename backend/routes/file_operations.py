@@ -341,42 +341,31 @@ async def get_file_metadata(project_name: str):
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving file metadata: {str(e)}")
-    
-@router.post("/build-dependency-graph/{project_name}")
-async def build_dependency_graph(project_name: str):
-    """Build a dependency graph for a project"""
+
+
+@router.post("/analyze-files/{project_name}")
+async def trigger_file_analysis(project_name: str):
+    """Manually trigger file analysis for a project"""
     try:
         from app import agents
         from core.enhanced_config import EnhancedConfig
         
+        # Build project path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
         
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error building dependency graph: {str(e)}")
-
-
-# @router.post("/analyze-files/{project_name}")
-# async def trigger_file_analysis(project_name: str):
-#     """Manually trigger file analysis for a project"""
-#     try:
-#         from app import agents
-#         from core.enhanced_config import EnhancedConfig
+        # Validate project exists
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
         
-#         # Build project path
-#         project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, project_name)
+        # Run file analysis
+        result = await agents['file_analysis'].analyze_project_files(project_path)
         
-#         # Validate project exists
-#         if not os.path.exists(project_path):
-#             raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
-        
-#         # Run file analysis
-#         result = await agents['file_analysis'].analyze_project_files(project_path)
-        
-#         return {
-#             "success": result.get("success", False),
-#             "message": result.get("message", "Unknown error"),
-#             "total_files": result.get("total_files", 0),
-#             "project_name": project_name
-#         }
+        return {
+            "success": result.get("success", False),
+            "message": result.get("message", "Unknown error"),
+            "total_files": result.get("total_files", 0),
+            "project_name": project_name
+        }
             
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error triggering file analysis: {str(e)}") 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error triggering file analysis: {str(e)}") 

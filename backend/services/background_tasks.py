@@ -3,6 +3,7 @@ Background tasks for the Chameleon Hackathon Discovery API
 """
 
 import os
+import json
 import subprocess
 from datetime import datetime, timedelta
 
@@ -11,11 +12,80 @@ from core.enhanced_config import EnhancedConfig
 from utils.status_tracker import get_global_tracker
 
 
+def save_hackathon_info_for_panic(project_path: str, request: EnhancedUntraceabilityRequest):
+    """Save hackathon information to a file for the PANIC button to use later"""
+    try:
+        hackathon_info = {
+            'hackathon_date': request.hackathon_date,
+            'hackathon_start_time': request.hackathon_start_time,
+            'hackathon_duration': request.hackathon_duration,
+            'team_members': [
+                {
+                    'username': member.username,
+                    'email': member.email,
+                    'name': member.name
+                }
+                for member in request.team_members
+            ] if request.team_members else [],
+            'target_repository_url': request.target_repository_url,
+            'saved_at': datetime.now().isoformat(),
+            'git_username': request.git_username,
+            'git_email': request.git_email
+        }
+        
+        # Calculate deadline (hackathon start + duration)
+        if request.hackathon_date and request.hackathon_start_time:
+            try:
+                hackathon_start = datetime.strptime(f"{request.hackathon_date} {request.hackathon_start_time}", "%Y-%m-%d %H:%M")
+                deadline = hackathon_start + timedelta(hours=request.hackathon_duration)
+                hackathon_info['hackathon_deadline'] = deadline.isoformat()
+            except ValueError:
+                # Fallback: set deadline 4 hours from now
+                fallback_deadline = datetime.now() + timedelta(hours=4)
+                hackathon_info['hackathon_deadline'] = fallback_deadline.isoformat()
+        else:
+            # Fallback: set deadline 4 hours from now
+            fallback_deadline = datetime.now() + timedelta(hours=4)
+            hackathon_info['hackathon_deadline'] = fallback_deadline.isoformat()
+        
+        # Save to project directory
+        hackathon_info_file = os.path.join(project_path, '.hackathon_info.json')
+        with open(hackathon_info_file, 'w') as f:
+            json.dump(hackathon_info, f, indent=2)
+            
+        # Also save user info to backend/user_info.json for PANIC button
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        user_info_file = os.path.join(backend_dir, 'user_info.json')
+        
+        user_info = {
+            'git_username': request.git_username,
+            'git_email': request.git_email,
+            'hackathon_deadline': hackathon_info['hackathon_deadline'],
+            'saved_at': datetime.now().isoformat(),
+            'team_members': hackathon_info['team_members']
+        }
+        
+        with open(user_info_file, 'w') as f:
+            json.dump(user_info, f, indent=2)
+            
+        print(f"💾 Saved hackathon info for PANIC button: {hackathon_info_file}")
+        print(f"💾 Saved user info for PANIC button: {user_info_file}")
+        
+    except Exception as e:
+        print(f"⚠️ Failed to save hackathon info for PANIC button: {e}")
+        # Don't fail the whole process if this fails
+
+
 async def run_untraceable_process(project_name: str, project_path: str, request: EnhancedUntraceabilityRequest, main_task_id: str):
     """Run the untraceable process in the background."""
     try:
         from app import agents  # Import agents from main app
         status_tracker = get_global_tracker()
+        
+        # Save hackathon info for PANIC button at the very beginning
+        # This ensures the info is available even if the rest of the process fails.
+        save_hackathon_info_for_panic(project_path, request)
+        
         commits_modified = 0
         files_modified = 0
         

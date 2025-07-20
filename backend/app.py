@@ -41,6 +41,7 @@ from routes import (
 from routes.file_operations import router as file_operations_router
 from routes.git import router as git_router
 from routes.dependency import router as dependency_router
+from routes.panic import router as panic_router
 
 # Global instances
 agents = {}
@@ -116,6 +117,7 @@ app.include_router(project_router)
 app.include_router(file_operations_router)
 app.include_router(git_router)
 app.include_router(dependency_router)
+app.include_router(panic_router)
 
 
 @app.get("/")

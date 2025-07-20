@@ -84,6 +84,11 @@ export default function ProjectPage() {
   // Editor reference for undo functionality
   const [editorRef, setEditorRef] = useState<any>(null);
   
+  // PANIC button state
+  const [panicLoading, setPanicLoading] = useState(false);
+  const [showPanicResultModal, setShowPanicResultModal] = useState(false);
+  const [panicResult, setPanicResult] = useState<any>(null);
+  
   // Removed all streaming functions
 
   // Team member management handlers
@@ -97,6 +102,62 @@ export default function ProjectPage() {
 
   const handleUpdateTeamMember = (index: number, field: keyof TeamMember, value: string) => {
     setTeamMembers(createUpdateTeamMember(teamMembers, index, field, value));
+  };
+
+  // PANIC button handler
+  const handlePanicMode = async () => {
+    try {
+      setPanicLoading(true);
+      
+      const panicRequest = {
+        project_name: projectName,
+        start_command: 'python -m http.server 3000'
+      };
+      
+      // Call panic endpoint
+      const panicResponse = await fetch('http://localhost:8000/api/panic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(panicRequest)
+      });
+      
+      const panicResult = await panicResponse.json();
+
+      if (!panicResponse.ok) {
+        throw new Error(panicResult.detail || 'Panic mode failed');
+      }
+      
+      if (panicResult.success && panicResult.index_file_path) {
+        // Refresh the project files immediately
+        await fetchProjectFiles();
+        
+        // Try to open the local index.html file in a new tab
+        const fileUrl = `file://${panicResult.index_file_path}`;
+        const newWindow = window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        
+        // Store result for modal
+        setPanicResult({
+          ...panicResult,
+          fileUrl,
+          openedSuccessfully: !!newWindow
+        });
+        setShowPanicResultModal(true);
+        
+        // Try to copy URL to clipboard as backup
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(fileUrl).catch(() => {});
+        }
+      } else {
+        setPanicResult(panicResult);
+        setShowPanicResultModal(true);
+      }
+      
+    } catch (error: any) {
+      console.error('Panic mode failed:', error);
+      alert(`Panic mode failed: ${error.message}`);
+    } finally {
+      setPanicLoading(false);
+    }
   };
 
   // File operation handlers
@@ -419,6 +480,23 @@ export default function ProjectPage() {
               Git History
             </Button>
             
+            {/* PANIC Button */}
+            <Button 
+              variant="outline"
+              onClick={handlePanicMode}
+              disabled={panicLoading}
+              className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white animate-pulse"
+            >
+              {panicLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  PANIC MODE...
+                </>
+              ) : (
+                '🚨 PANIC'
+              )}
+            </Button>
+            
             {/* Untraceable Button */}
             <AlertDialog open={showUntraceabilityModal} onOpenChange={setShowUntraceabilityModal}>
               <AlertDialogTrigger asChild>
@@ -597,9 +675,6 @@ export default function ProjectPage() {
                     <Shield className="h-5 w-5 mr-2" />
                     Making Project Untraceable
                   </AlertDialogTitle>
-                  <AlertDialogDescription className="text-zinc-300">
-                    Processing your project with AI agents...
-                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 
                 <div className="py-8 flex flex-col items-center space-y-4">
@@ -871,6 +946,85 @@ export default function ProjectPage() {
         onClose={() => setShowGitHistory(false)}
       />
       
+      {/* PANIC Result Modal */}
+      <AlertDialog open={showPanicResultModal} onOpenChange={setShowPanicResultModal}>
+        <AlertDialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className={`text-xl flex items-center ${panicResult?.success ? 'text-green-400' : 'text-red-400'}`}>
+              {panicResult?.success ? '🚨 PANIC MODE COMPLETE! 🚨' : '❌ PANIC MODE FAILED'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-zinc-300 space-y-4">
+                {panicResult?.success ? (
+                  <>
+                    <div className="bg-green-900/20 border border-green-800 rounded-lg p-4">
+                      <div className="font-bold text-green-300 mb-2">✅ Emergency tic-tac-toe project deployed!</div>
+                      <div className="text-sm space-y-1">
+                        <div>Commit: <code className="bg-zinc-800 px-1 rounded text-green-300">{panicResult.commit_hash}</code></div>
+                        <div>Project: <code className="bg-zinc-800 px-1 rounded text-blue-300">{panicResult.project_name}</code></div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+                      <div className="font-bold text-blue-300 mb-2">🎮 Open Your Emergency Project:</div>
+                      {panicResult.openedSuccessfully ? (
+                        <div className="text-green-300">✅ Project opened in new tab automatically!</div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-amber-300">⚠️ Popup blocked. Click the link below to open manually:</div>
+                          <div className="flex items-center space-x-2">
+                            <a 
+                              href={panicResult.fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex-1 bg-zinc-800 p-2 rounded border border-blue-600 text-blue-300 hover:bg-zinc-700 hover:border-blue-500 transition-colors break-all"
+                            >
+                              🔗 {panicResult.fileUrl}
+                            </a>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(panicResult.fileUrl);
+                                // Optional: Show a temporary toast or feedback
+                              }}
+                              className="border-zinc-600 text-zinc-300 hover:bg-zinc-700 px-3"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="text-xs text-zinc-500">💡 Click the copy button to copy URL to clipboard</div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3">
+                      <div className="text-amber-300 text-sm">
+                        💡 <strong>Recovery Info:</strong> Original author information saved to{' '}
+                        <code className="bg-zinc-800 px-1 rounded">.panic_recovery_info.json</code>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+                    <div className="font-bold text-red-300 mb-2">❌ Error:</div>
+                    <div className="text-red-200">{panicResult?.message || 'Unknown error occurred'}</div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="flex justify-end mt-6">
+            <Button 
+              onClick={() => setShowPanicResultModal(false)}
+              className="bg-zinc-700 hover:bg-zinc-600 text-white"
+            >
+              Close
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

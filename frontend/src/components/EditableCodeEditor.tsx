@@ -1,22 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Save, Undo2, Redo2, Loader2 } from 'lucide-react';
-
-// Dynamically import Monaco Editor with SSR disabled
-const Editor = dynamic(() => import('@monaco-editor/react'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
-        <p className="text-zinc-400">Loading editor...</p>
-      </div>
-    </div>
-  )
-});
+import MonacoWrapper from './MonacoWrapper';
 
 interface HistoryEntry {
   content: string;
@@ -378,9 +365,9 @@ export default function EditableCodeEditor({
 
       {/* Monaco Editor */}
       <div className="flex-1">
-        <Editor
+        <MonacoWrapper
           height={height}
-          defaultLanguage={getLanguageForMonaco(language)}
+          language={getLanguageForMonaco(language)}
           value={editorValue}
           onChange={handleEditorChange}
           onMount={handleEditorDidMount}
@@ -406,10 +393,10 @@ export default function EditableCodeEditor({
             smoothScrolling: true,
             mouseWheelZoom: true,
             // Disable error markers and red underlines
-            'semanticHighlighting.enabled': false,
-            'occurrencesHighlight': false,
-            'renderValidationDecorations': 'off',
-            'hideCursorInOverviewRuler': true
+            semanticHighlighting: { enabled: false },
+            occurrencesHighlight: false,
+            renderValidationDecorations: 'off',
+            hideCursorInOverviewRuler: true
           }}
         />
       </div>

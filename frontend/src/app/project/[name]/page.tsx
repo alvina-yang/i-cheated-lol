@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -123,6 +123,8 @@ export default function ProjectPage() {
   const [initialWinChances] = useState(() => Math.floor(Math.random() * 11) + 70); // 70-80
   const [currentWinChances, setCurrentWinChances] = useState<number | undefined>(undefined);
   
+  const fileFetchControllerRef = useRef<AbortController | null>(null);
+  
   // Removed all streaming functions
 
   // Team member management handlers
@@ -163,7 +165,7 @@ export default function ProjectPage() {
       
       if (panicResult.success && panicResult.index_file_path) {
         // Refresh the project files immediately
-        await fetchProjectFiles();
+        await fetchProjectFiles(new AbortController().signal);
         
         // Try to open the local index.html file in a new tab
         const fileUrl = `file://${panicResult.index_file_path}`;
@@ -435,14 +437,22 @@ export default function ProjectPage() {
   };
 
   useEffect(() => {
-    if (projectName) {
-      fetchProjectFiles();
-    }
-  }, [projectName]);
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-  const fetchProjectFiles = async () => {
+    if (projectName) {
+      fetchProjectFiles(signal);
+    }
+
+    return () => {
+      controller.abort();
+    };
+  }, [projectName, githubUrl]);
+
+  const fetchProjectFiles = async (signal: AbortSignal) => {
     try {
       setLoading(true);
+      setError(null);
       
       // If we have a GitHub URL, clone the repository first
       if (githubUrl) {
@@ -454,7 +464,8 @@ export default function ProjectPage() {
             project_name: projectName,
             project_url: githubUrl,
             clone_url: githubUrl.endsWith('.git') ? githubUrl : `${githubUrl}.git`
-          })
+          }),
+          signal // Pass signal to fetch
         });
         
         if (!cloneResponse.ok) {
@@ -464,7 +475,7 @@ export default function ProjectPage() {
         setError(null);
       }
       
-      const response = await fetch(API_ENDPOINTS.PROJECT_FILES(projectName));
+      const response = await fetch(API_ENDPOINTS.PROJECT_FILES(projectName), { signal });
       
       if (!response.ok) {
         throw new Error('Failed to fetch project files');
@@ -472,9 +483,13 @@ export default function ProjectPage() {
       
       const data = await response.json();
       setProject(data);
-    } catch (err) {
-      console.error('Error fetching project files:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load project');
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('Fetch aborted for project files');
+      } else {
+        console.error('Error fetching project files:', err);
+        setError(err.message || 'Failed to load project');
+      }
     } finally {
       setLoading(false);
     }
@@ -524,7 +539,7 @@ export default function ProjectPage() {
         alert('Project successfully made untraceable!');
         
         // Refresh the project to show updated files
-        fetchProjectFiles();
+        fetchProjectFiles(new AbortController().signal);
       }, 3000);
       
     } catch (err) {
@@ -540,11 +555,20 @@ export default function ProjectPage() {
     if (file.type === 'file') {
       if (selectedFile?.path === file.path) return;
 
+      // Abort previous fetch if it's still running
+      if (fileFetchControllerRef.current) {
+        fileFetchControllerRef.current.abort();
+      }
+      
+      const controller = new AbortController();
+      fileFetchControllerRef.current = controller;
+      const signal = controller.signal;
+
       setFileContentLoading(true);
       setSelectedFile({ ...file, content: undefined });
 
       try {
-        const response = await fetch(API_ENDPOINTS.FILE_CONTENT(projectName, file.path));
+        const response = await fetch(API_ENDPOINTS.FILE_CONTENT(projectName, file.path), { signal });
         const content = await response.text();
         
         if (response.ok) {
@@ -553,10 +577,14 @@ export default function ProjectPage() {
           setSelectedFile({ ...file, content: `Error: Failed to load file. Status: ${response.status}\n\n${content}` });
         }
       } catch (err: any) {
-        console.error('Failed to load file content:', err);
-        setSelectedFile({ ...file, content: `Error: Could not load file.\n\n${err.message}` });
+        if (err.name !== 'AbortError') {
+          console.error('Failed to load file content:', err);
+          setSelectedFile({ ...file, content: `Error: Could not load file.\n\n${err.message}` });
+        }
       } finally {
-        setFileContentLoading(false);
+        if (fileFetchControllerRef.current === controller) {
+          setFileContentLoading(false);
+        }
       }
     }
   };
@@ -705,7 +733,7 @@ export default function ProjectPage() {
                 </Button>
               </AlertDialogTrigger>
               
-              <AlertDialogContent className="bg-zinc-900 border-zinc-700 max-w-2xl">
+              <AlertDialogContent className="bg-zinc-900 border-zinc-700 max-w-3xl max-h-[90vh] overflow-y-auto">
                 <AlertDialogHeader>
                   <AlertDialogTitle className="text-white flex items-center">
                     <Shield className="h-5 w-5 mr-2" />
@@ -716,61 +744,100 @@ export default function ProjectPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 
-                <div className="py-4 space-y-4">
-                  {/* Git Info and Hackathon Details */}
+                <div className="py-6 space-y-6">
+                  {/* Hackathon Timeline Section */}
                   <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-zinc-200">Hackathon Timeline</h3>
+                    <h3 className="text-lg font-semibold text-zinc-200 border-b border-zinc-700 pb-2">
+                      Hackathon Timeline
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-300 flex items-center">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Hackathon Date
+                        </label>
+                        <DatePicker
+                          date={hackathonDate}
+                          onDateChange={setHackathonDate}
+                          placeholder="Select hackathon date"
+                        />
+                      </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-300 flex items-center">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Hackathon Date
-                    </label>
-                    <DatePicker
-                      date={hackathonDate}
-                      onDateChange={setHackathonDate}
-                      placeholder="Select hackathon date"
-                    />
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-300 flex items-center">
+                          <User className="h-4 w-4 mr-2" />
+                          Start Time
+                        </label>
+                        <Input
+                          type="time"
+                          value={hackathonStartTime}
+                          onChange={(e) => setHackathonStartTime(e.target.value)}
+                          className="bg-zinc-800 border-zinc-700 text-white"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-300">
+                        Duration (hours)
+                      </label>
+                      <Input
+                        type="number"
+                        value={hackathonDuration}
+                        onChange={(e) => setHackathonDuration(e.target.value)}
+                        className="bg-zinc-800 border-zinc-700 text-white max-w-xs"
+                        placeholder="48"
+                        min="1"
+                        max="168"
+                      />
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-300 flex items-center">
-                      <User className="h-4 w-4 mr-2" />
-                            Team Members
-                    </label>
-                          <Button
-                            type="button"
-                            onClick={handleAddTeamMember}
-                            variant="outline"
-                            size="sm"
-                            className="border-zinc-600 text-zinc-300 hover:bg-zinc-800"
-                          >
-                            Add Team Member
-                          </Button>
-                        </div>
-                        
-                        {teamMembers.length === 0 && (
-                          <div className="text-sm text-zinc-500 italic">
-                            No team members added. Click "Add Team Member" to add developers for commit attribution.
+
+                  {/* Team Members Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-zinc-700 pb-2">
+                      <h3 className="text-lg font-semibold text-zinc-200">
+                        Team Members
+                      </h3>
+                      <Button
+                        type="button"
+                        onClick={handleAddTeamMember}
+                        variant="outline"
+                        size="sm"
+                        className="border-zinc-600 text-zinc-300 hover:bg-zinc-800"
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Add Member
+                      </Button>
+                    </div>
+                    
+                    {teamMembers.length === 0 && (
+                      <div className="text-sm text-zinc-500 italic bg-zinc-800/50 p-3 rounded-lg border border-zinc-700">
+                        No team members added. Click "Add Member" to add developers for commit attribution.
+                      </div>
+                    )}
+                    
+                    <div className="space-y-3">
+                      {teamMembers.map((member, index) => (
+                        <div key={index} className="p-4 bg-zinc-800 rounded-lg border border-zinc-700">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-sm font-medium text-zinc-300">
+                              Team Member {index + 1}
+                            </span>
+                            <Button
+                              type="button"
+                              onClick={() => handleRemoveTeamMember(index)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:bg-red-900/20 h-7 px-2"
+                            >
+                              Remove
+                            </Button>
                           </div>
-                        )}
-                        
-                        {teamMembers.map((member, index) => (
-                          <div key={index} className="space-y-2 p-3 bg-zinc-800 rounded-lg border border-zinc-700">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium text-zinc-300">Team Member {index + 1}</span>
-                              <Button
-                                type="button"
-                                onClick={() => handleRemoveTeamMember(index)}
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-400 hover:bg-red-900/20"
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs text-zinc-400">Username</label>
                               <Input
                                 type="text"
                                 value={member.username}
@@ -778,6 +845,9 @@ export default function ProjectPage() {
                                 className="bg-zinc-900 border-zinc-600 text-white"
                                 placeholder="username"
                               />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-zinc-400">Email</label>
                               <Input
                                 type="email"
                                 value={member.email}
@@ -785,52 +855,62 @@ export default function ProjectPage() {
                                 className="bg-zinc-900 border-zinc-600 text-white"
                                 placeholder="email@example.com"
                               />
-                    <Input
-                      type="text"
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-zinc-400">Display Name</label>
+                              <Input
+                                type="text"
                                 value={member.name}
                                 onChange={(e) => handleUpdateTeamMember(index, 'name', e.target.value)}
                                 className="bg-zinc-900 border-zinc-600 text-white"
-                                placeholder="Display Name (optional)"
+                                placeholder="Full Name (optional)"
                               />
                             </div>
                           </div>
-                        ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   
-                      {/* Target Repository URL */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-300 flex items-center">
-                          Target Repository URL (optional)
-                    </label>
-                    <Input
-                          type="url"
-                          value={targetRepositoryUrl}
-                          onChange={(e) => setTargetRepositoryUrl(e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-white"
-                          placeholder="https://github.com/username/new-repo.git (optional)"
-                    />
-                        <p className="text-xs text-zinc-500">
-                          If provided, the project will be cloned to this new repository
-                        </p>
-                  </div>
+                  {/* Repository Clone Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-zinc-200 border-b border-zinc-700 pb-2">
+                      Repository Clone (Optional)
+                    </h3>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-300">
+                        Target Repository URL
+                      </label>
+                      <Input
+                        type="url"
+                        value={targetRepositoryUrl}
+                        onChange={(e) => setTargetRepositoryUrl(e.target.value)}
+                        className="bg-zinc-800 border-zinc-700 text-white"
+                        placeholder="https://github.com/username/new-repo.git"
+                      />
+                      <p className="text-xs text-zinc-500">
+                        If provided, the project will be cloned to this new repository with the rewritten history.
+                      </p>
                     </div>
+                  </div>
                 </div>
                     
-                <div className="flex justify-end space-x-3 border-t border-zinc-700 pt-4">
+                <div className="flex justify-end space-x-3 border-t border-zinc-700 pt-6 mt-6">
                   <AlertDialogAction
                     onClick={() => setShowUntraceabilityModal(false)}
-                    className="bg-zinc-700 hover:bg-zinc-600 text-white"
+                    className="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2"
                   >
                     Cancel
                   </AlertDialogAction>
                   <AlertDialogAction
                     onClick={handleUntraceability}
-                    className="border-2 border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-400 bg-transparent"
+                    className="border-2 border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 hover:border-purple-400 bg-transparent px-4 py-2"
                     disabled={untraceabilityLoading}
                   >
+                    <Shield className="h-4 w-4 mr-2" />
                     {untraceabilityLoading ? 'Processing...' : 'Begin Untraceability'}
                   </AlertDialogAction>
-                    </div>
+                </div>
               </AlertDialogContent>
             </AlertDialog>
 

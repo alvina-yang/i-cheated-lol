@@ -398,18 +398,6 @@ export default function ProjectPage() {
           </div>
           
           <div className="flex items-center space-x-3">
-            {/* Global Undo Button */}
-            {editorRef && (
-              <Button 
-                variant="outline"
-                onClick={editorRef.undo}
-                disabled={!editorRef.canUndo()}
-                className="border-zinc-600 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-50"
-                title="Global Undo (Cmd+Z) - Undo edits, saves, comments, and variable changes"
-              >
-                Undo
-              </Button>
-            )}
             
             {/* Presentation Script Button */}
             <Button 

@@ -65,15 +65,23 @@ export default function EditableCodeEditor({
   const [isClient, setIsClient] = useState(false);
   const [editorMounted, setEditorMounted] = useState(false);
   const editorRef = useRef<any>(null);
+  const manualEditTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ensure we're on the client side
   useEffect(() => {
     setIsClient(true);
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (manualEditTimeoutRef.current) {
+        clearTimeout(manualEditTimeoutRef.current);
+      }
+    };
   }, []);
 
-  // Initialize history with the original content
+  // Initialize with the first version of the content
   useEffect(() => {
-    if (isClient) {
+    if (isClient && value !== undefined && history.length === 0) {
       const initialEntry: HistoryEntry = {
         content: value,
         timestamp: Date.now(),
@@ -84,68 +92,92 @@ export default function EditableCodeEditor({
       setHistoryIndex(0);
       setEditorValue(value);
     }
-  }, [value, isClient]);
+  }, [value, isClient, history.length]);
 
-  // External update method for file operations
-  const updateContent = useCallback((content: string, operation: HistoryEntry['operation'], description: string) => {
-    addToHistory(content, operation, description);
-    setEditorValue(content);
-    setHasUnsavedChanges(false);
-    
-    // Update the editor content
-    if (editorRef.current && editorMounted) {
-      editorRef.current.setValue(content);
-    }
-  }, [editorMounted]);
-
-  const addToHistory = useCallback((content: string, operation: HistoryEntry['operation'], description: string) => {
-    const newEntry: HistoryEntry = {
-      content,
-      timestamp: Date.now(),
-      operation,
-      description
-    };
-
-    setHistory(prev => {
-      // If we're not at the end of history, remove everything after current index
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push(newEntry);
-      
-      // Limit history to last 50 entries to prevent memory issues
-      if (newHistory.length > 50) {
-        return newHistory.slice(-50);
-      }
-      
-      return newHistory;
-    });
-    
-    setHistoryIndex(prev => {
-      const newIndex = Math.min(prev + 1, 49); // Max index is 49 for 50 entries
-      return newIndex;
-    });
-  }, [historyIndex]);
-
-  // Expose methods to parent component
+  // This is the core logic that updates the editor when undo/redo changes the history index
   useEffect(() => {
-    if (onReady && isClient && editorMounted) {
-      onReady({
-        addToHistory,
-        updateContent,
-        undo: handleUndo,
-        redo: handleRedo,
-        canUndo: () => historyIndex > 0,
-        canRedo: () => historyIndex < history.length - 1
-      });
-    }
-  }, [onReady, addToHistory, updateContent, historyIndex, history.length, isClient, editorMounted]);
+    const currentEntry = history[historyIndex];
+    if (currentEntry && currentEntry.content !== editorValue) {
+      setEditorValue(currentEntry.content);
 
+      // Automatically save the change to the file
+      (async () => {
+        setIsSaving(true);
+        try {
+          const response = await fetch(`http://localhost:8000/api/file/save/${projectName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file_path: filePath,
+              content: currentEntry.content
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save file on history change');
+          }
+          setHasUnsavedChanges(false);
+        } catch (error) {
+          console.error('Error saving file on history change:', error);
+          setHasUnsavedChanges(true);
+        } finally {
+          setIsSaving(false);
+        }
+      })();
+    }
+  }, [historyIndex, history, projectName, filePath]); // Added dependencies
+
+  // Adds a new state to the history stack
+  const addToHistory = useCallback((content: string, operation: HistoryEntry['operation'], description: string) => {
+    setHistory(currentHistory => {
+      setHistoryIndex(currentIndex => {
+        const newHistory = currentHistory.slice(0, currentIndex + 1);
+        newHistory.push({
+          content,
+          timestamp: Date.now(),
+          operation,
+          description
+        });
+        
+        const finalHistory = newHistory.length > 50 ? newHistory.slice(-50) : newHistory;
+        const newIndex = finalHistory.length - 1;
+
+        // Manually update history and index to avoid stale state issues
+        queueMicrotask(() => {
+          setHistory(finalHistory);
+          setHistoryIndex(newIndex);
+        });
+        
+        return currentIndex; // This will be replaced by the microtask
+      });
+      return currentHistory; // This will be replaced by the microtask
+    });
+  }, []);
+  
+  // Expose a method for parent components to update content and history
+  const updateContent = useCallback((content: string, operation: HistoryEntry['operation'], description: string) => {
+    setEditorValue(content);
+    addToHistory(content, operation, description);
+  }, [addToHistory]);
+
+  const addManualEditToHistory = useCallback((content: string) => {
+    if (manualEditTimeoutRef.current) {
+      clearTimeout(manualEditTimeoutRef.current);
+    }
+    manualEditTimeoutRef.current = setTimeout(() => {
+      addToHistory(content, 'manual_edit', 'Manual edit');
+    }, 1000);
+  }, [addToHistory]);
+  
+  // When the user types, update the editor value and schedule a history update
   const handleEditorChange = useCallback((newValue: string | undefined) => {
     if (newValue !== undefined && newValue !== editorValue) {
       setEditorValue(newValue);
       setHasUnsavedChanges(true);
       onChange?.(newValue);
+      addManualEditToHistory(newValue);
     }
-  }, [editorValue, onChange]);
+  }, [editorValue, onChange, addManualEditToHistory]);
 
   const handleSave = async () => {
     if (!hasUnsavedChanges || isSaving) return;
@@ -181,34 +213,29 @@ export default function EditableCodeEditor({
   };
 
   const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      const previousEntry = history[newIndex];
-      setHistoryIndex(newIndex);
-      setEditorValue(previousEntry.content);
-      setHasUnsavedChanges(previousEntry.content !== history.find(h => h.operation === 'save')?.content);
-      
-      // Update the editor content
-      if (editorRef.current && editorMounted) {
-        editorRef.current.setValue(previousEntry.content);
-      }
-    }
-  }, [historyIndex, history, editorMounted]);
+    setHistoryIndex(prevIndex => Math.max(0, prevIndex - 1));
+  }, []);
 
   const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      const nextEntry = history[newIndex];
-      setHistoryIndex(newIndex);
-      setEditorValue(nextEntry.content);
-      setHasUnsavedChanges(nextEntry.content !== history.find(h => h.operation === 'save')?.content);
-      
-      // Update the editor content
-      if (editorRef.current && editorMounted) {
-        editorRef.current.setValue(nextEntry.content);
-      }
+    setHistory(currentHistory => {
+      setHistoryIndex(prevIndex => Math.min(currentHistory.length - 1, prevIndex + 1));
+      return currentHistory;
+    });
+  }, []);
+
+  // Expose methods to parent component
+  useEffect(() => {
+    if (onReady && isClient && editorMounted) {
+      onReady({
+        addToHistory,
+        updateContent,
+        undo: handleUndo,
+        redo: handleRedo,
+        canUndo: () => historyIndex > 0,
+        canRedo: () => historyIndex < history.length - 1
+      });
     }
-  }, [historyIndex, history, editorMounted]);
+  }, [isClient, editorMounted, addToHistory, updateContent, handleUndo, handleRedo, historyIndex, history.length]);
 
   // Keyboard shortcuts - only on client side
   useEffect(() => {
@@ -304,7 +331,7 @@ export default function EditableCodeEditor({
         <div className="flex items-center space-x-2">
           <Button
             onClick={handleUndo}
-            disabled={!canUndo}
+            disabled={historyIndex <= 0}
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-zinc-400 hover:text-white disabled:opacity-50"
@@ -315,7 +342,7 @@ export default function EditableCodeEditor({
           </Button>
           <Button
             onClick={handleRedo}
-            disabled={!canRedo}
+            disabled={historyIndex >= history.length - 1}
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-zinc-400 hover:text-white disabled:opacity-50"
@@ -324,9 +351,9 @@ export default function EditableCodeEditor({
             <Redo2 className="h-3 w-3 mr-1" />
             Redo
           </Button>
-          {currentHistoryEntry && (
+          {history[historyIndex] && (
             <span className="text-xs text-zinc-500 ml-2">
-              {currentHistoryEntry.description}
+              {history[historyIndex].description}
             </span>
           )}
         </div>

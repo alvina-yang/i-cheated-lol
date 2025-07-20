@@ -21,6 +21,7 @@
     "framer-motion": "^12.19.1",
     "lucide-react": "^0.523.0",
     "marked": "^16.1.1",
+    "monaco-editor": "^0.52.2",
     "next": "15.3.4",
     "react": "^19.0.0",
     "react-day-picker": "^9.8.0",

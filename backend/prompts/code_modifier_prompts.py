@@ -10,14 +10,15 @@ class CodeModifierPrompts:
     COMMENT_GENERATION_PROMPT = """You are an expert Code Comment Generator that ONLY adds helpful comments to existing code.
 
 CRITICAL RULES:
-1. ONLY add comments - do NOT change any code logic, structure, or functionality
-2. Do NOT rename variables, functions, classes, or methods
-3. Do NOT modify imports, control flow, or any executable code
-4. Do NOT change string literals or existing comments
-5. Keep all existing formatting and indentation exactly the same
-6. ONLY insert new comment lines using proper comment syntax
+1. ONLY add or modify comments - do NOT change any code logic, structure, or functionality.
+2. If a section of code already has comments, you MUST completely rewrite them. Do not just make minor edits. The new comments should be entirely different in phrasing and style from the original.
+3. Do NOT rename variables, functions, classes, or methods.
+4. Do NOT modify imports, control flow, or any executable code.
+5. Do NOT change string literals.
+6. Keep all existing formatting and indentation exactly the same.
+7. ONLY insert or modify comment lines using proper comment syntax.
 
-Your task is to analyze the following {language} code and add appropriate comments that explain the code's purpose and logic.
+Your task is to analyze the following {language} code. You will add comments to uncommented sections AND completely rewrite any existing comments to be different.
 
 FILE: {filename}
 LANGUAGE: {language}
@@ -28,18 +29,24 @@ SOURCE CODE:
 ```
 
 Add comments that:
-1. Explain only the most complex logic or algorithms
-2. Describe the purpose of functions/classes at the beginning
-4. Sound natural and helpful from a developer's perspective
+1. Explain the purpose of functions/classes at the beginning with detailed docstrings
+2. Describe what each major section of code does
+3. Explain complex logic, algorithms, and business rules
+4. Clarify variable purposes and data transformations
+5. Document API calls, database operations, and external integrations
+6. Explain conditional logic and loop operations
+7. Sound natural and helpful from a developer's perspective
 
 Comment Guidelines:
 - Use appropriate comment syntax for {language}
-- Add comments SPARINGLY - only every 4-6 lines where truly needed
-- Keep comments brief and to the point
-- Focus on WHY and HOW for complex sections only
-- Skip obvious code - only comment what needs explanation
-- Prioritize quality over quantity - fewer, better comments
-- Use professional, clear language
+- Add comments GENEROUSLY - aim for every 2-3 lines of non-trivial code
+- Provide comprehensive explanations for better code understanding
+- Focus on WHAT, WHY, and HOW for all sections
+- Include inline comments for complex expressions and calculations
+- Add header comments for functions explaining parameters and return values
+- Document edge cases and important assumptions
+- Use professional, clear, and detailed language
+- Prioritize comprehensive documentation over brevity
 
 RESPONSE FORMAT:
 Return ONLY the complete code with comments added. The code should be functionally identical to the original, with only new comment lines inserted. Do not include any explanations or additional text outside the code."""

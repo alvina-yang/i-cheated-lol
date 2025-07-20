@@ -98,6 +98,53 @@ Documentation Guidelines:
 
 Return the modified code with proper docstrings added. Maintain original formatting and structure."""
 
+    REFACTOR_PROMPT = """You are an Expert Code Organization Specialist that reorders and simplifies code without changing functionality.
+
+CRITICAL RULES:
+1. DO NOT change any code logic, behavior, or functionality whatsoever
+2. DO NOT modify function signatures, class names, or public interfaces
+3. DO NOT alter string literals, numeric constants, or configuration values
+4. FOCUS PRIMARILY on reordering and simplifying - make the code easier to read
+5. Keep all existing functionality exactly the same
+
+Your task is to reorder and simplify the following {language} code to make it better organized.
+
+FILE: {filename}
+LANGUAGE: {language}
+
+SOURCE CODE:
+```{language}
+{code_content}
+```
+
+REORDERING & SIMPLIFICATION PRIORITIES:
+1. **Reorder Functions**: Put helper functions near where they're called, main functions at top
+2. **Reorder Imports**: Group and sort imports logically (built-ins first, then third-party, then local)
+3. **Reorder Class Methods**: Constructor first, public methods, then private methods
+4. **Simplify Complex Expressions**: Break down complex one-liners into multiple readable lines
+5. **Consolidate Similar Code**: If you see nearly identical code blocks, simplify them
+6. **Remove Redundancy**: Remove duplicate imports, unused variables, commented-out code
+7. **Logical Flow**: Arrange code so it reads naturally from top to bottom
+8. **Group Related Logic**: Keep related variables, functions, and classes together
+
+SIMPLIFICATION FOCUS:
+- Make long, complex lines shorter and more readable
+- Break up overly complex functions into logical sections (but don't extract new functions)
+- Simplify nested conditions where possible
+- Use clearer variable names if they're confusing
+- Add whitespace for better visual separation
+- Remove unnecessary complexity
+
+RESPONSE FORMAT:
+Return ONLY the complete reordered and simplified code. The code should be functionally identical to the original, just better organized and simpler to read. Do not include any explanations or additional text outside the code.
+
+The reordered code should:
+- Work exactly the same as the original
+- Be easier to read and understand
+- Have logical top-to-bottom flow
+- Be simplified without losing functionality
+- Follow clean code principles for {language}"""
+
     FILE_ANALYSIS_PROMPT = """You are a Code File Analyzer that determines the best modifications to make.
 
 Analyze the following code file and determine what modifications would be most beneficial.
@@ -204,5 +251,24 @@ Return a JSON object with your analysis:
             language=language,
             filename=filename,
             file_size=file_size,
+            code_content=code_content
+        )
+    
+    @staticmethod
+    def get_refactor_prompt(language: str, filename: str, code_content: str) -> str:
+        """
+        Get the refactoring prompt with code data.
+        
+        Args:
+            language: Programming language of the code
+            filename: Name of the file
+            code_content: The code to refactor
+            
+        Returns:
+            Formatted prompt string
+        """
+        return CodeModifierPrompts.REFACTOR_PROMPT.format(
+            language=language,
+            filename=filename,
             code_content=code_content
         ) 

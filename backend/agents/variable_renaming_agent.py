@@ -83,16 +83,16 @@ class VariableRenamingAgent(BaseAgent):
             
             try:
                 # Try to parse as JSON first for structured response
-                rename_data = json.loads(response.content)
+                rename_data = json.loads(response)
                 if "modified_code" in rename_data:
                     modified_content = rename_data["modified_code"]
                     variable_changes = rename_data.get("changes", [])
                 else:
-                    modified_content = response.content.strip()
+                    modified_content = response.strip()
                     variable_changes = []
             except json.JSONDecodeError:
                 # Fallback to plain text response
-                modified_content = response.content.strip()
+                modified_content = response.strip()
                 variable_changes = []
             
             # Validate that the modified content is actually different

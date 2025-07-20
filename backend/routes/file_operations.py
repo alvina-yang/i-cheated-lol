@@ -141,6 +141,59 @@ async def rename_variables_in_file(request: FileOperationRequest):
         raise HTTPException(status_code=500, detail=f"Error renaming variables: {str(e)}")
 
 
+@router.post("/make-better", response_model=FileOperationResponse)
+async def make_file_better(request: FileOperationRequest):
+    """Refactor and reorder a file to make it better without changing logic"""
+    try:
+        from app import agents
+        from core.enhanced_config import EnhancedConfig
+        
+        # Build full file path
+        project_path = os.path.join(EnhancedConfig.CLONE_DIRECTORY, request.project_name)
+        full_file_path = os.path.join(project_path, request.file_path)
+        
+        # Validate file exists
+        if not os.path.exists(full_file_path):
+            raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+        
+        # Read original content
+        with open(full_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            original_content = f.read()
+        
+        # Use the CodeModifierAgent to refactor the file
+        result = agents['code_modifier'].refactor_file(full_file_path)
+        
+        if result.get("success", False):
+            # Read modified content
+            with open(full_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                modified_content = f.read()
+            
+            refactorings_count = result.get("refactorings_count", 0)
+            
+            return FileOperationResponse(
+                success=True,
+                message=f"Successfully refactored {request.file_path}",
+                original_content=original_content,
+                modified_content=modified_content,
+                changes_summary=f"Applied {refactorings_count} refactoring improvements",
+                lines_added=0,
+                variables_changed=refactorings_count
+            )
+        else:
+            return FileOperationResponse(
+                success=False,
+                message=result.get("message", "Failed to refactor file"),
+                original_content=original_content,
+                modified_content=original_content,
+                changes_summary="No changes made",
+                lines_added=0,
+                variables_changed=0
+            )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error refactoring file: {str(e)}")
+
+
 @router.post("/save/{project_name}")
 async def save_file_content(project_name: str, request: FileSaveRequest):
     """Save content to a file"""

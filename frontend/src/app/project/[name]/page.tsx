@@ -84,6 +84,11 @@ export default function ProjectPage() {
   // Editor reference for undo functionality
   const [editorRef, setEditorRef] = useState<any>(null);
   
+  // PANIC button state
+  const [panicLoading, setPanicLoading] = useState(false);
+  const [showPanicResultModal, setShowPanicResultModal] = useState(false);
+  const [panicResult, setPanicResult] = useState<any>(null);
+  
   // Removed all streaming functions
 
   // Team member management handlers
@@ -99,16 +104,79 @@ export default function ProjectPage() {
     setTeamMembers(createUpdateTeamMember(teamMembers, index, field, value));
   };
 
+  // PANIC button handler
+  const handlePanicMode = async () => {
+    try {
+      setPanicLoading(true);
+      
+      const panicRequest = {
+        project_name: projectName,
+        start_command: 'python -m http.server 3000'
+      };
+      
+      // Call panic endpoint
+      const panicResponse = await fetch('http://localhost:8000/api/panic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(panicRequest)
+      });
+      
+      const panicResult = await panicResponse.json();
+
+      if (!panicResponse.ok) {
+        throw new Error(panicResult.detail || 'Panic mode failed');
+      }
+      
+      if (panicResult.success && panicResult.index_file_path) {
+        // Refresh the project files immediately
+        await fetchProjectFiles();
+        
+        // Try to open the local index.html file in a new tab
+        const fileUrl = `file://${panicResult.index_file_path}`;
+        const newWindow = window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        
+        // Store result for modal
+        setPanicResult({
+          ...panicResult,
+          fileUrl,
+          openedSuccessfully: !!newWindow
+        });
+        setShowPanicResultModal(true);
+        
+        // Try to copy URL to clipboard as backup
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(fileUrl).catch(() => {});
+        }
+      } else {
+        setPanicResult(panicResult);
+        setShowPanicResultModal(true);
+      }
+      
+    } catch (error: any) {
+      console.error('Panic mode failed:', error);
+      alert(`Panic mode failed: ${error.message}`);
+    } finally {
+      setPanicLoading(false);
+    }
+  };
+
   // File operation handlers
-  const handleFileOperation = async (operation: 'add-comments' | 'rename-variables') => {
+  const handleFileOperation = async (operation: 'add-comments' | 'rename-variables' | 'make-better') => {
     if (!selectedFile) return;
     
     setFileOperationLoading(operation);
     
     try {
-      const operationEndpoint = operation === 'add-comments' 
-        ? API_ENDPOINTS.FILE_OPERATIONS.ADD_COMMENTS 
-        : API_ENDPOINTS.FILE_OPERATIONS.RENAME_VARIABLES;
+      let operationEndpoint: string;
+      if (operation === 'add-comments') {
+        operationEndpoint = API_ENDPOINTS.FILE_OPERATIONS.ADD_COMMENTS;
+      } else if (operation === 'rename-variables') {
+        operationEndpoint = API_ENDPOINTS.FILE_OPERATIONS.RENAME_VARIABLES;
+      } else if (operation === 'make-better') {
+        operationEndpoint = API_ENDPOINTS.FILE_OPERATIONS.MAKE_BETTER;
+      } else {
+        throw new Error(`Unknown operation: ${operation}`);
+      }
       
       const response = await fetch(operationEndpoint, {
         method: 'POST',
@@ -148,10 +216,17 @@ export default function ProjectPage() {
         
         // Update the editor with the new content and add to history
         if (editorRef) {
-          const operationName = operation === 'add-comments' ? 'add_comments' : 'rename_variables';
-          const description = operation === 'add-comments' 
-            ? `Added ${result.lines_added} comment lines` 
-            : `Renamed ${result.variables_changed} variables`;
+          let operationName, description;
+          if (operation === 'add-comments') {
+            operationName = 'add_comments';
+            description = `Added ${result.lines_added} comment lines`;
+          } else if (operation === 'rename-variables') {
+            operationName = 'rename_variables';
+            description = `Renamed ${result.variables_changed} variables`;
+          } else if (operation === 'make-better') {
+            operationName = 'refactor_file';
+            description = `Applied ${result.variables_changed || 'code'} refactoring improvements`;
+          }
           editorRef.updateContent(newContent, operationName, description);
         }
         
@@ -589,6 +664,23 @@ export default function ProjectPage() {
               </AlertDialogContent>
             </AlertDialog>
 
+            {/* PANIC Button */}
+            <Button 
+              variant="outline"
+              onClick={handlePanicMode}
+              disabled={panicLoading}
+              className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white animate-pulse"
+            >
+              {panicLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  PANIC MODE...
+                </>
+              ) : (
+                '🚨 PANIC'
+              )}
+            </Button>
+
             {/* Progress Modal - Simple Loading */}
             <AlertDialog open={showProgressModal} onOpenChange={setShowProgressModal}>
               <AlertDialogContent className="bg-zinc-900 border-zinc-700">
@@ -597,9 +689,6 @@ export default function ProjectPage() {
                     <Shield className="h-5 w-5 mr-2" />
                     Making Project Untraceable
                   </AlertDialogTitle>
-                  <AlertDialogDescription className="text-zinc-300">
-                    Processing your project with AI agents...
-                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 
                 <div className="py-8 flex flex-col items-center space-y-4">
@@ -643,18 +732,6 @@ export default function ProjectPage() {
                 <div className="py-4 max-h-[70vh] overflow-y-auto">
                   {diffData && (
                     <div className="space-y-4">
-                      <div className="bg-zinc-800 p-4 rounded-lg">
-                        <h4 className="text-sm font-medium text-zinc-300 mb-2">Changes Summary:</h4>
-                        <div className="flex space-x-4 text-sm">
-                          {diffData.linesAdded > 0 && (
-                            <span className="text-green-400">+{diffData.linesAdded} lines added</span>
-                          )}
-                          {diffData.variablesChanged > 0 && (
-                            <span className="text-blue-400">{diffData.variablesChanged} variables renamed</span>
-                          )}
-                        </div>
-                      </div>
-                      
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div>
                           <h4 className="text-sm font-medium text-zinc-300 mb-2">Before:</h4>
@@ -727,16 +804,6 @@ export default function ProjectPage() {
                 </div>
               </AlertDialogContent>
             </AlertDialog>
-            
-            <Badge className="bg-zinc-800 text-zinc-300">
-              {project.language}
-            </Badge>
-            <Badge className="bg-blue-600/20 text-blue-300 border-blue-700">
-              ⭐ {project.stars}
-            </Badge>
-            <Badge className="bg-purple-600/20 text-purple-300 border-purple-700">
-              🍴 {project.forks}
-            </Badge>
           </div>
         </div>
       </div>
@@ -803,6 +870,16 @@ export default function ProjectPage() {
                     >
                       <Variable className="h-3 w-3 mr-1" />
                       {fileOperationLoading === 'rename-variables' ? 'Processing...' : 'Rename Variables'}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 bg-green-600/20 text-green-300 hover:bg-green-600/30 border border-green-700"
+                      onClick={() => handleFileOperation('make-better')}
+                      disabled={fileOperationLoading !== null}
+                    >
+                      <Code2 className="h-3 w-3 mr-1" />
+                      {fileOperationLoading === 'make-better' ? 'Processing...' : 'Make Better'}
                     </Button>
                     
                     {/* Standard file operations */}
@@ -871,6 +948,85 @@ export default function ProjectPage() {
         onClose={() => setShowGitHistory(false)}
       />
       
+      {/* PANIC Result Modal */}
+      <AlertDialog open={showPanicResultModal} onOpenChange={setShowPanicResultModal}>
+        <AlertDialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className={`text-xl flex items-center ${panicResult?.success ? 'text-green-400' : 'text-red-400'}`}>
+              {panicResult?.success ? '🚨 PANIC MODE COMPLETE! 🚨' : '❌ PANIC MODE FAILED'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-zinc-300 space-y-4">
+                {panicResult?.success ? (
+                  <>
+                    <div className="bg-green-900/20 border border-green-800 rounded-lg p-4">
+                      <div className="font-bold text-green-300 mb-2">✅ Emergency tic-tac-toe project deployed!</div>
+                      <div className="text-sm space-y-1">
+                        <div>Commit: <code className="bg-zinc-800 px-1 rounded text-green-300">{panicResult.commit_hash}</code></div>
+                        <div>Project: <code className="bg-zinc-800 px-1 rounded text-blue-300">{panicResult.project_name}</code></div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+                      <div className="font-bold text-blue-300 mb-2">🎮 Open Your Emergency Project:</div>
+                      {panicResult.openedSuccessfully ? (
+                        <div className="text-green-300">✅ Project opened in new tab automatically!</div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-amber-300">⚠️ Popup blocked. Click the link below to open manually:</div>
+                          <div className="flex items-center space-x-2">
+                            <a 
+                              href={panicResult.fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex-1 bg-zinc-800 p-2 rounded border border-blue-600 text-blue-300 hover:bg-zinc-700 hover:border-blue-500 transition-colors break-all"
+                            >
+                              🔗 {panicResult.fileUrl}
+                            </a>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(panicResult.fileUrl);
+                                // Optional: Show a temporary toast or feedback
+                              }}
+                              className="border-zinc-600 text-zinc-300 hover:bg-zinc-700 px-3"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="text-xs text-zinc-500">💡 Click the copy button to copy URL to clipboard</div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3">
+                      <div className="text-amber-300 text-sm">
+                        💡 <strong>Recovery Info:</strong> Original author information saved to{' '}
+                        <code className="bg-zinc-800 px-1 rounded">.panic_recovery_info.json</code>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+                    <div className="font-bold text-red-300 mb-2">❌ Error:</div>
+                    <div className="text-red-200">{panicResult?.message || 'Unknown error occurred'}</div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="flex justify-end mt-6">
+            <Button 
+              onClick={() => setShowPanicResultModal(false)}
+              className="bg-zinc-700 hover:bg-zinc-600 text-white"
+            >
+              Close
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

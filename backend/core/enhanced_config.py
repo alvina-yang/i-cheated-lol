@@ -87,11 +87,11 @@ class EnhancedConfig:
     """Enhanced configuration management for the Chameleon system."""
     
     # Base Configuration (from original config)
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY')
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     
     # LLM Configuration
-    LLM_MODEL = os.getenv('LLM_MODEL', 'gpt-4o-mini')
+    LLM_MODEL = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')
     LLM_TEMPERATURE = float(os.getenv('LLM_TEMPERATURE', '0.3'))
     
     # Search Configuration
@@ -151,8 +151,8 @@ class EnhancedConfig:
     @classmethod
     def validate(cls):
         """Validate that required configuration is present."""
-        if not cls.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
+        if not cls.GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY environment variable is required")
         
         # Initialize if not already done
         if cls._user_settings is None:

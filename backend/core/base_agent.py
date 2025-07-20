@@ -5,9 +5,8 @@ Provides common functionality and interface for agent implementations.
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from langchain_openai import ChatOpenAI 
-# from groq import Groq  # Commented out for OpenAI
 from .config import Config
+from .llm_wrapper import get_default_llm_wrapper
 
 
 class BaseAgent(ABC):
@@ -32,15 +31,8 @@ class BaseAgent(ABC):
         # Validate configuration
         self.config.validate()
         
-        # Initialize LLM
-        self.llm = ChatOpenAI(  # Uncommented for OpenAI
-            model=self.config.LLM_MODEL,
-            api_key=self.config.OPENAI_API_KEY,
-            temperature=temperature or self.config.LLM_TEMPERATURE
-        )
-        # self.llm = Groq(  # Commented out for OpenAI
-        #     api_key=self.config.GROQ_API_KEY
-        # )
+        # Initialize LLM using the unified wrapper
+        self.llm = get_default_llm_wrapper(self.config)
         self.temperature = temperature or self.config.LLM_TEMPERATURE
         
         self.log(f"Initialized {self.agent_name}")
@@ -104,42 +96,8 @@ class BaseAgent(ABC):
             LLM response (string or parsed JSON if parse_json=True)
         """
         try:
-            # Original LangChain method (uncommented for OpenAI)
-            response = self.llm.invoke(prompt)
-            content = response.content
-            
-            # Groq API call (commented out for OpenAI)
-            # response = self.llm.chat.completions.create(
-            #     model=self.config.LLM_MODEL,
-            #     messages=[
-            #         {"role": "user", "content": prompt}
-            #     ],
-            #     temperature=self.temperature,
-            #     max_tokens=2048
-            # )
-            # content = response.choices[0].message.content
-            
-            # Ensure content is a string
-            if isinstance(content, list):
-                content = ' '.join(str(item) for item in content)
-            elif content is None:
-                content = ""
-            else:
-                content = str(content)
-            
-            if parse_json and content:
-                import json
-                # Try to extract JSON from the response
-                if '{' in content and '}' in content:
-                    start = content.find('{')
-                    end = content.rfind('}') + 1
-                    json_str = content[start:end]
-                    return json.loads(json_str)
-                else:
-                    self.log(f"No JSON found in LLM response", "ERROR")
-                    return None
-            
-            return content
+            # Use the unified LLM wrapper
+            return self.llm.invoke(prompt, parse_json)
             
         except Exception as e:
             self.log(f"Error invoking LLM: {e}", "ERROR")

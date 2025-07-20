@@ -1,199 +1,147 @@
 {
   "/tailwind.config.js": [],
-  "/postcss.config.mjs": [],
-  "/next.config.mjs": [
-    "/v0-user-next.config.mjs"
-  ],
+  "/emotion_data.json": [],
   "/README.md": [],
-  "/flatiron_building_.mp3": [],
   "/package-lock.json": [],
   "/package.json": [],
-  "/components.json": [
-    "/tailwind.config.ts",
-    "/app/globals.css",
-    "/lib/utils.ts",
-    "/components/ui",
-    "/lib"
+  "/transcript_analysis.json": [],
+  "/app/page.tsx": [
+    "/components/ui/background-beams-with-collision.tsx"
   ],
-  "/tsconfig.json": [],
-  "/types/global.d.ts": [],
-  "/app/layout.tsx": [
+  "/frontend/postcss.config.mjs": [],
+  "/frontend/README.md": [],
+  "/frontend/tailwind.config.ts": [],
+  "/frontend/package-lock.json": [],
+  "/frontend/package.json": [],
+  "/frontend/components.json": [
+    "/tailwind.config.ts",
     "/app/globals.css"
   ],
-  "/app/page.tsx": [
-    "/components/ui/input.tsx",
+  "/frontend/tsconfig.json": [],
+  "/frontend/eslint.config.mjs": [],
+  "/frontend/next.config.ts": [],
+  "/frontend/app/favicon.ico": [],
+  "/frontend/app/layout.tsx": [
+    "/app/globals.css"
+  ],
+  "/frontend/app/page.tsx": [
+    "/components/ui/background-beams-with-collision.tsx",
     "/components/ui/button.tsx",
+    "/components/apple-cards-carousel.tsx"
+  ],
+  "/frontend/app/globals.css": [],
+  "/frontend/app/pitch-page/page.tsx": [
+    "/components/loading-analysis.tsx"
+  ],
+  "/frontend/app/feedback/page.txt": [
+    "/components/ui/background-beams-with-collision"
+  ],
+  "/frontend/app/feedback/page.tsx": [
+    "/components/ui/background-beams-with-collision.tsx"
+  ],
+  "/frontend/app/upload-page/page.tsx": [
+    "/components/ui/background-beams-with-collision.tsx",
+    "/components/ui/button.tsx",
+    "/components/ui/input.tsx",
+    "/components/ui/label.tsx",
     "/components/ui/card.tsx",
-    "/components/ui/separator.tsx"
+    "/components/ui/file-upload.tsx"
   ],
-  "/app/globals.css": [],
-  "/styles/globals.css": [],
-  "/components/theme-provider.tsx": [],
-  "/components/ui/aspect-ratio.tsx": [],
-  "/components/ui/alert-dialog.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/button.ts"
-  ],
-  "/components/ui/use-mobile.tsx": [],
-  "/components/ui/pagination.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/button.ts"
-  ],
-  "/components/ui/tabs.tsx": [
+  "/frontend/components/loading-analysis.tsx": [],
+  "/frontend/components/apple-cards-carousel.tsx": [],
+  "/frontend/components/ui/background-beams.tsx": [],
+  "/frontend/components/ui/card.tsx": [
     "/lib/utils.ts"
   ],
-  "/components/ui/card.tsx": [
+  "/frontend/components/ui/label.tsx": [
     "/lib/utils.ts"
   ],
-  "/components/ui/slider.tsx": [
+  "/frontend/components/ui/background-beams-with-collision.tsx": [
     "/lib/utils.ts"
   ],
-  "/components/ui/popover.tsx": [
+  "/frontend/components/ui/file-upload.tsx": [
     "/lib/utils.ts"
   ],
-  "/components/ui/progress.tsx": [
+  "/frontend/components/ui/button.tsx": [
     "/lib/utils.ts"
   ],
-  "/components/ui/toaster.tsx": [
-    "/hooks/use-toast.ts",
-    "/components/ui/toast.ts"
-  ],
-  "/components/ui/input-otp.tsx": [
+  "/frontend/components/ui/input.tsx": [
     "/lib/utils.ts"
   ],
-  "/components/ui/chart.tsx": [
-    "/lib/utils.ts"
+  "/frontend/public/file.svg": [],
+  "/frontend/public/vercel.svg": [],
+  "/frontend/public/hi.json": [],
+  "/frontend/public/next.svg": [],
+  "/frontend/public/globe.svg": [],
+  "/frontend/public/window.svg": [],
+  "/frontend/public/images/rbcc.png": [],
+  "/frontend/public/images/passwordd.png": [],
+  "/frontend/public/images/password2.jpg": [],
+  "/frontend/public/images/rbc2.jpg": [],
+  "/frontend/public/images/google2.webp": [],
+  "/frontend/public/images/logopitch.png": [],
+  "/frontend/public/images/lens.jpg": [],
+  "/frontend/public/images/mlh.jpg": [],
+  "/frontend/public/images/password.png": [],
+  "/frontend/public/images/rbc.png": [],
+  "/frontend/public/images/rbc.jpg": [],
+  "/frontend/public/images/celebrate.jpg": [],
+  "/frontend/public/images/google.png": [],
+  "/frontend/public/images/image2.png": [],
+  "/frontend/public/images/pitch.jpg": [],
+  "/frontend/public/images/uofthacks.jpg": [],
+  "/frontend/public/images/image3.png": [],
+  "/frontend/lib/utils.ts": [],
+  "/output/transcript-bad.json": [],
+  "/backend/requirements.txt": [],
+  "/backend/emotion_data.json": [],
+  "/backend/a16z_rubric_20250119_020947.json": [],
+  "/backend/investor_rubric_gen.py": [],
+  "/backend/transcript_analysis.json": [],
+  "/backend/cursed_backend.py": [
+    "/judges/evaluation.py",
+    "/voice/chatbot.py",
+    "/voice/personalities.py"
   ],
-  "/components/ui/hover-card.tsx": [
-    "/lib/utils.ts"
+  "/backend/main.py": [
+    "/rubric/rubric_to_json.py",
+    "/voice/chatbot.py",
+    "/judges/evaluation.py"
   ],
-  "/components/ui/sheet.tsx": [
-    "/lib/utils.ts"
+  "/backend/grader/grader.py": [
+    "/backend/rubric/transcripts/transcript-bad_analysis.json"
   ],
-  "/components/ui/scroll-area.tsx": [
-    "/lib/utils.ts"
+  "/backend/grader/rubric_to_json.py": [],
+  "/backend/grader/emotion_detection.py": [
+    "/grader/json_converter.py"
   ],
-  "/components/ui/resizable.tsx": [
-    "/lib/utils.ts"
+  "/backend/grader/json_converter.py": [
+    "/backend/rubric/transcripts/transcript-bad.txt",
+    "/emotion_data.json"
   ],
-  "/components/ui/label.tsx": [
-    "/lib/utils.ts"
+  "/backend/judges/test_judges.py": [
+    "/backend/evaluation.py",
+    "/backend/judges.py"
   ],
-  "/components/ui/sonner.tsx": [],
-  "/components/ui/navigation-menu.tsx": [
-    "/lib/utils.ts"
+  "/backend/judges/evaluation.py": [
+    "/judges/judges.py",
+    "/judges/judge_consensus.py"
   ],
-  "/components/ui/accordion.tsx": [
-    "/lib/utils.ts"
+  "/backend/judges/judge_consensus.py": [
+    "/judges/judges.py"
   ],
-  "/components/ui/drawer.tsx": [
-    "/lib/utils.ts"
+  "/backend/judges/judges.py": [],
+  "/backend/voice/personalities.py": [],
+  "/backend/voice/chatbot.py": [
+    "/voice/personalities.py"
   ],
-  "/components/ui/tooltip.tsx": [
-    "/lib/utils.ts"
+  "/backend/rubric/grader.py": [
+    "/backend/rubric/transcripts/transcript-bad_analysis.json"
   ],
-  "/components/ui/alert.tsx": [
-    "/lib/utils.ts"
+  "/backend/rubric/rubric_to_json.py": [],
+  "/backend/rubric/json_converter.py": [],
+  "/backend/rubric/emotion-detection.py": [
+    "/backend/json_converter.py"
   ],
-  "/components/ui/use-toast.ts": [
-    "/components/ui/toast.ts"
-  ],
-  "/components/ui/switch.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/calendar.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/button.ts"
-  ],
-  "/components/ui/breadcrumb.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/radio-group.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/command.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/dialog.tsx"
-  ],
-  "/components/ui/toggle-group.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/toggle.ts"
-  ],
-  "/components/ui/avatar.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/menubar.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/dialog.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/badge.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/sidebar.tsx": [
-    "/hooks/use-mobile.ts",
-    "/lib/utils.ts",
-    "/components/ui/button.tsx",
-    "/components/ui/input.tsx",
-    "/components/ui/separator.tsx",
-    "/components/ui/sheet.tsx",
-    "/components/ui/skeleton.tsx",
-    "/components/ui/tooltip.tsx"
-  ],
-  "/components/ui/table.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/separator.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/button.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/toggle.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/toast.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/checkbox.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/collapsible.tsx": [],
-  "/components/ui/dropdown-menu.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/select.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/textarea.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/input.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/skeleton.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/context-menu.tsx": [
-    "/lib/utils.ts"
-  ],
-  "/components/ui/form.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/label.tsx"
-  ],
-  "/components/ui/carousel.tsx": [
-    "/lib/utils.ts",
-    "/components/ui/button.tsx"
-  ],
-  "/public/placeholder-logo.svg": [],
-  "/public/placeholder-logo.png": [],
-  "/public/placeholder-user.jpg": [],
-  "/public/placeholder.jpg": [],
-  "/public/placeholder.svg": [],
-  "/hooks/use-mobile.tsx": [],
-  "/hooks/use-toast.ts": [
-    "/components/ui/toast.ts"
-  ],
-  "/lib/utils.ts": []
+  "/analyses/transcript-bad_analysis_analysis.json": []
 }

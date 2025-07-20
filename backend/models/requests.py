@@ -50,3 +50,9 @@ class SettingsUpdateRequest(BaseModel):
 
 class PresentationScriptRequest(BaseModel):
     project_name: str 
+
+
+class CodeGenerationRequest(BaseModel):
+    project_path: str
+    feature_description: str
+    max_files: int = 5  # Limit number of files to modify

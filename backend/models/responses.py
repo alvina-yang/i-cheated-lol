@@ -59,3 +59,10 @@ class PresentationScriptResponse(BaseModel):
     structure_overview: str = ""
     recent_output: List[str] = []
     summary: Dict[str, Any] = {} 
+
+
+class CodeGenerationResponse(BaseModel):
+    success: bool
+    message: str
+    generated_files: Optional[Dict[str, str]] = None
+    error_details: Optional[str] = None
